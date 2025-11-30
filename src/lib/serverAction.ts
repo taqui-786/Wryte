@@ -6,17 +6,18 @@ import { db } from "@/db/dbConnect";
 import { docs } from "@/db/schema/auth-schema";
 import { and, eq } from "drizzle-orm";
 import { CreateDocSchema } from "./zodValidations";
+import { cache } from "react";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY as string,
 });
 
-export const getServerUserSession = async () => {
+export const getServerUserSession = cache(async () => {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
   return session;
-};
+});
 
 const testing = async () => {
   const response = await ai.models.generateContent({
@@ -47,11 +48,14 @@ export const getDocsById = async (id: string) => {
       id: docs.id,
       title: docs.title,
       content: docs.content,
-      updatedAt:docs.updatedAt
+      updatedAt: docs.updatedAt,
     })
     .from(docs)
     .where(
-      and(eq(docs.userId, session?.user.id as string), eq(docs.id, id as string))
+      and(
+        eq(docs.userId, session?.user.id as string),
+        eq(docs.id, id as string)
+      )
     );
   return response;
 };

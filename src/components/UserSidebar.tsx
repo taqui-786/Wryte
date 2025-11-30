@@ -24,6 +24,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getUserDocs } from "@/lib/serverAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryState, parseAsString } from "nuqs";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 
 type NavItem = {
   title: string;
@@ -39,6 +41,8 @@ function UserSidebar() {
     queryFn: getUserDocs, // ← clean now
   });
   const [page] = useQueryState("page", parseAsString);
+  const url = usePathname();
+
   const [navItems, setNavItems] = useState<NavItem[]>([
     {
       title: "Write",
@@ -96,21 +100,6 @@ function UserSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton
-                            className="bg-primary text-primary-foreground hover:bg-primary/90"
-                            asChild
-                          >
-                            <a href={"/write"}>
-                              <div className="text-primary-foreground flex">
-                                <PlusIcon size="18" className="mr-1 " />
-                              </div>
-                              <span className="line-clamp-1 leading-tight">
-                                Create new
-                              </span>
-                            </a>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
                         {isLoading ? (
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton>
@@ -119,31 +108,72 @@ function UserSidebar() {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ) : (
-                          item.items?.map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton
-                                asChild
-                                className={
-                                  subItem.isActive
-                                    ? "bg-accent text-accent-foreground"
-                                    : ""
-                                }
-                              >
-                                <a href={subItem.url}>
-                                  <PageIcon size="18" className="mr-1" />
+                          <>
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90">
+                                <Link
+                                  href={"/write"}
+                                  className="flex items-center gap-2"
+                                >
+                                  <PlusIcon size="16" className="mr-1 " />
                                   <span className="line-clamp-1 leading-tight">
-                                    {subItem.title}
+                                    Create new
                                   </span>
-                                </a>
+                                </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
-                          ))
+                            {item.items?.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.title}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  className={
+                                    subItem.isActive
+                                      ? "bg-accent text-accent-foreground"
+                                      : ""
+                                  }
+                                >
+                                  <Link href={subItem.url}>
+                                    <PageIcon size="18" className="mr-1" />
+                                    <span className="line-clamp-1 leading-tight">
+                                      {subItem.title}
+                                    </span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </>
                         )}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
               ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Settings"
+                  isActive={url === "/settings"}
+                >
+                  <Link href="/settings" className="flex gap-2">
+                    <SettingIcon size="18" />
+                    <span className="line-clamp-1 leading-tight font-medium">
+                      Settings
+                    </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Feedback"
+                  isActive={url === "/feedback"}
+                >
+                  <Link href="/feedback" className="flex gap-2">
+                    <FeedbackIcon size="18" />
+                    <span className="line-clamp-1 leading-tight font-medium">
+                      Feedback
+                    </span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -171,9 +201,9 @@ const QuillWrite02 = ({ size, className }: QuillWrite02Props) => (
     <g
       fill="none"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
       color="currentColor"
     >
       <path d="M10.55 3c-3.852.007-5.87.102-7.159 1.39C2 5.783 2 8.022 2 12.5s0 6.717 1.391 8.109C4.783 22 7.021 22 11.501 22c4.478 0 6.717 0 8.108-1.391c1.29-1.29 1.384-3.307 1.391-7.16" />
@@ -199,9 +229,9 @@ const ArrowRightIcon = ({ size, className }: ArrowRight01Props) => (
     <path
       fill="none"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
       d="M9 6s6 4.419 6 6s-6 6-6 6"
       color="currentColor"
     />
@@ -225,9 +255,9 @@ const PageIcon = ({ size, className }: GoogleDocProps) => (
     <g
       fill="none"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
       color="currentColor"
     >
       <path d="M15 2.5V4c0 1.414 0 2.121.44 2.56C15.878 7 16.585 7 18 7h1.5" />
@@ -253,11 +283,63 @@ const PlusIcon = ({ size, className = "", ...props }: PlusSignProps) => (
     <path
       fill="none"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
       d="M12 4v16m8-8H4"
       color="currentColor"
+    />
+  </svg>
+);
+type Settings01Props = {
+  size: string;
+  className?: string;
+};
+
+const SettingIcon = ({ size, className }: Settings01Props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+  >
+    <title>settign</title>
+    <g
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      color="currentColor"
+    >
+      <path d="M15.5 12a3.5 3.5 0 1 1-7 0a3.5 3.5 0 0 1 7 0" />
+      <path d="M21.011 14.097c.522-.141.783-.212.886-.346c.103-.135.103-.351.103-.784v-1.934c0-.433 0-.65-.103-.784s-.364-.205-.886-.345c-1.95-.526-3.171-2.565-2.668-4.503c.139-.533.208-.8.142-.956s-.256-.264-.635-.479l-1.725-.98c-.372-.21-.558-.316-.725-.294s-.356.21-.733.587c-1.459 1.455-3.873 1.455-5.333 0c-.377-.376-.565-.564-.732-.587c-.167-.022-.353.083-.725.295l-1.725.979c-.38.215-.57.323-.635.48c-.066.155.003.422.141.955c.503 1.938-.718 3.977-2.669 4.503c-.522.14-.783.21-.886.345S2 10.6 2 11.033v1.934c0 .433 0 .65.103.784s.364.205.886.346c1.95.526 3.171 2.565 2.668 4.502c-.139.533-.208.8-.142.956s.256.264.635.48l1.725.978c.372.212.558.317.725.295s.356-.21.733-.587c1.46-1.457 3.876-1.457 5.336 0c.377.376.565.564.732.587c.167.022.353-.083.726-.295l1.724-.979c.38-.215.57-.323.635-.48s-.003-.422-.141-.955c-.504-1.937.716-3.976 2.666-4.502" />
+    </g>
+  </svg>
+);
+type ChatFeedback01Props = {
+  size: string;
+  className?: string;
+};
+
+const FeedbackIcon = ({ size,className }: ChatFeedback01Props) => (
+  <svg
+    width={size}
+    height={size}
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    className={className}
+  >
+    <title>feedback</title>
+    <path
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
+      d="M7.5 8.5h9m-9 4H13m9-2c0-.77-.014-1.523-.04-2.25c-.083-2.373-.125-3.56-1.09-4.533c-.965-.972-2.186-1.024-4.626-1.129A100 100 0 0 0 12 2.5c-1.48 0-2.905.03-4.244.088c-2.44.105-3.66.157-4.626 1.13c-.965.972-1.007 2.159-1.09 4.532a64 64 0 0 0 0 4.5c.083 2.373.125 3.56 1.09 4.533c.965.972 2.186 1.024 4.626 1.129q1.102.047 2.275.07c.74.014 1.111.02 1.437.145s.6.358 1.148.828l2.179 1.87A.73.73 0 0 0 16 20.77v-2.348l.244-.01c2.44-.105 3.66-.157 4.626-1.13c.965-.972 1.007-2.159 1.09-4.532c.026-.727.04-1.48.04-2.25"
     />
   </svg>
 );

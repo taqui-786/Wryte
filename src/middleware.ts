@@ -13,16 +13,12 @@ export async function middleware(request: NextRequest) {
     if (pathname === "/" || pathname === "/signin") {
       return NextResponse.redirect(new URL("/write", request.url));
     }
-  } else {
-    if (pathname !== "/signin") {
-      return NextResponse.redirect(new URL("/signin", request.url));
-    }
-  }
+  } 
 
   return NextResponse.next();
 }
 
 export const config = {
-  runtime: "nodejs", // Required for auth.api calls
-  matcher: ["/", "/signin", "/write"], // Specify the routes the middleware applies to
+  runtime: "nodejs",
+  matcher: ["/", "/signin", "/write"], 
 };
