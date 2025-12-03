@@ -8,47 +8,70 @@ const client = new OpenAI({
 });
 export async function autoComplete({
   context,
-  node
+  node,endWithSpace
 }: {
   context: string;
   node: string;
+  endWithSpace: boolean;
 }): Promise<string> {
 const systemPrompt = `
-You are an advanced AI writing assistant for a Prosemirror-based editor. Your task is to intelligently complete text based on context and current node type.
+You are an autocomplete engine for a Prosemirror editor.
+Your output must be ONLY the continuation text. No explanations, no analysis, no restating the context.
 
-Current Node Context: ${node}
-
+NODE: ${node}
 MARKDOWN_FORMATTING_RULES: ${MARKDOWN_FORMATTING_RULES}
+ENDS_WITH_SPACE: ${endWithSpace}
 
-CRITICAL INSTRUCTIONS - NO EXCEPTIONS:
-- Output ONLY the raw continuation text with ABSOLUTELY NO additional formatting, quotes, ellipses (...), commas, periods, or ANY punctuation at the start
-- If the input ends mid-word, FIRST complete that word with NO space, then continue naturally
-- If the input ends with a complete word, start the continuation with a space
-- NEVER start with: "...", ",", ".", "?", "!", quotes, or any other punctuation
-- Strip ALL punctuation from the beginning of your response
-- For mid-word completions: Simply finish the word seamlessly (no leading space or punctuation)
-- For word completions: Start with a space before new words
-- Example: Input "arti" → Output "cle and thought" (no space/punctuation before "cle")
-- Example: Input "hello world" → Output " and welcome to my blog" (space before "and")
-- Example: Input "Should i need to compl" → Output "ete this task carefully" (no space before "ete")
-- IMPORTANT: Always check if input ends mid-word - if so, complete the word first without space or punctuation
-- Mid-word detection: If the last part doesn't end with a space and looks like an incomplete word, complete it first
-- FINAL OUTPUT MUST BE CLEAN TEXT ONLY - NO SYMBOLS, NO QUOTES, NO ELLIPSES, NO COMMAS AT START
+STRICT COMPLETION RULES — NO EXCEPTIONS:
 
-Node-Specific Rules:
-- For headings: Keep completions concise and title-like, complete the title naturally
-- For paragraphs: Allow conversational completions with optional markdown formatting
-- For lists: Complete as appropriate list items
-- Output 5-12 words maximum, but prioritize natural completion
-- Use markdown formatting when it enhances meaning (bold key terms, add links if contextually appropriate)
-- Match the existing tone and writing style exactly
+1. Output ONLY the continuation text.
+   Absolutely no meta text, no reasoning, no commentary, no quotes, no repeating any part of the input.
+
+2. MID-WORD COMPLETION (when ENDS_WITH_SPACE is false):
+   - If the context ends with a partial word (no trailing space), you MUST:
+       a) Identify the final fragment, e.g., "fea"
+       b) Complete ONLY a valid continuation of the SAME root
+          (the completed word MUST start exactly with the fragment)
+       c) Only add letters after the fragment
+       d) Do NOT modify, rewrite, or restart the fragment
+   - VALID completions for "fea": "ture", "sible", "rless", "st"
+   - INVALID completions:
+       "fetur", "future", "feature and feature", "fea fea",
+       or any completion not starting EXACTLY with "fea".
+
+3. FULL-WORD COMPLETION (when ENDS_WITH_SPACE is true):
+   - If the input ends with a trailing space, begin your continuation with EXACTLY ONE space.
+   Example: "This works " → "because it is predictable"
+
+   FULL-WORD COMPLETION (when ENDS_WITH_SPACE is false **but last word is complete**):
+   - If there is NO trailing space but the last word is already complete,
+     begin with ONE leading space before your continuation.
+   Example: "This works" → "__because it is predictable"
+
+   *Always user this symbol '__' when you need space at start*
+
+4. FORBIDDEN AT START:
+   No punctuation, ellipses, hyphens, commas, periods, quotes, ?, !, or any symbol.
+
+5. LENGTH:
+   4–10 natural, meaningful words.
+
+6. NODE RULES:
+   - Heading → short, title-like.
+   - Paragraph → natural, conversational.
+   - List → continue list item appropriately.
+
+FINAL REQUIREMENT:
+Your output MUST be ONLY the raw continuation text — no extra characters, no explanations, no prefixes and the continuation text must contain ONLY lowercase alphabetical words and spaces. 
+Absolutely NO punctuation is allowed anywhere in the output.
+.
 `;
 
-const userPrompt = `Context: "${context}"
-Node type: ${node}
+const userPrompt = `
+Context: "${context}"
+Node: ${node}
 
-Complete the text naturally:`;
-
+Provide ONLY the continuation text.`
 
   try {
     const response = await client.chat.completions.create({

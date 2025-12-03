@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { nodes as basicNodes, marks } from "./myEditorSchema";
-import { Schema } from "prosemirror-model";
+import { DOMParser, Schema } from "prosemirror-model";
 import { orderedList, bulletList, listItem } from "prosemirror-schema-list";
 import { MyEditorToolbar } from "./MyEditorToolbar";
 import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
@@ -10,6 +10,8 @@ import { EditorView } from "prosemirror-view";
 import { createEditorState } from "./EditorConfig";
 // @ts-ignore
 import "./myEditorStyle.css";
+import { marked } from "marked";
+
 const mySchema = new Schema({
   nodes: {
     doc: basicNodes.doc,
@@ -27,16 +29,23 @@ const mySchema = new Schema({
   },
   marks,
 });
-function MyEditor() {
+function MyEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange?: (value: string) => void;
+}) {
+  
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-
+const [run, setRun] = useState(false)
   useEffect(() => {
     if (!editorRef.current) return;
 
-    const state = createEditorState(mySchema, viewRef);
+    const state = createEditorState(mySchema, viewRef,null,onChange);
+
     const toolLink = document.querySelectorAll("tool-link");
- 
 
     toolLink.forEach((el) => {
       if (!(el instanceof HTMLButtonElement)) return;
@@ -133,10 +142,34 @@ function MyEditor() {
       }
     };
   }, []);
+useEffect(() => {
+  if (!viewRef.current || !value) return;
+  if(run) return
+setRun(true)
+  try {
+    // Convert markdown → HTML
+    const html = marked.parse(value);
+    // Parse HTML → ProseMirror doc
+    const parser = DOMParser.fromSchema(mySchema);
+    const temp = document.createElement("div");
+    temp.innerHTML = html as string;
+    const newDoc = parser.parse(temp);
+
+    // Replace the editor content
+    const view = viewRef.current;
+    const tr = view.state.tr.replaceWith(
+      0,
+      view.state.doc.content.size,
+      newDoc.content
+    );
+
+    view.dispatch(tr);
+  } catch (err) {
+    console.error("Markdown parsing failed:", err);
+  }
+}, [value]);
   return (
     <div className=" h-fit border border-primary">
-
-
       <MyEditorToolbar viewRef={viewRef} mySchema={mySchema} />
 
       <div ref={editorRef} spellCheck={false} />

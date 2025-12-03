@@ -16,7 +16,7 @@ function HandWrittenTitle({
   };
 
   return (
-    <h1 className="text-7xl  flex items-center justify-center font-semibold text-primary leading-tight z-50">
+    <div className="text-7xl  flex items-center justify-center font-semibold text-primary leading-tight z-50">
          <motion.h1
           className=""
           initial={{ opacity: 0, y: 20 }}
@@ -65,7 +65,7 @@ function HandWrittenTitle({
         </motion.h1>
       </div>
     </div>
-    </h1>
+    </div>
   );
 }
 

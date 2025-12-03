@@ -12,12 +12,58 @@ import {
   liftListItem,
   sinkListItem,
 } from "prosemirror-schema-list";
-
+import { DOMParser } from "prosemirror-model";
+import {
+  defaultMarkdownParser,
+  defaultMarkdownSerializer,
+} from "prosemirror-markdown";
 export function createEditorState(
   mySchema: any,
-  viewRef: React.MutableRefObject<any>
+  viewRef: React.MutableRefObject<any>,
+  defaultContent?: string | null,
+  onChange?: (json: any) => void
 ) {
-  const startDoc = mySchema.node("doc", null, [mySchema.node("paragraph")]);
+  let startDoc: any;
+
+  if (defaultContent) {
+    // 1. JSON
+    if (typeof defaultContent === "object") {
+      startDoc = mySchema.nodeFromJSON(defaultContent);
+    }
+
+    // 2. Markdown string
+    else if (
+      (typeof defaultContent === "string" &&
+        defaultContent.trim().startsWith("#")) ||
+      defaultContent.includes("*") ||
+      defaultContent.includes("- ")
+    ) {
+      try {
+        // use markdown parser
+        startDoc = defaultMarkdownParser.parse(defaultContent);
+      } catch (err) {
+        console.error("Markdown parse failed, using fallback HTML parser", err);
+
+        const parser = DOMParser.fromSchema(mySchema);
+        const element = document.createElement("div");
+        element.innerHTML = defaultContent;
+        startDoc = parser.parse(element);
+      }
+    }
+
+    // 3. HTML string
+    else if (typeof defaultContent === "string") {
+      const parser = DOMParser.fromSchema(mySchema);
+      const element = document.createElement("div");
+      element.innerHTML = defaultContent;
+      startDoc = parser.parse(element);
+    }
+  }
+
+  // fallback empty document
+  if (!startDoc) {
+    startDoc = mySchema.node("doc", null, [mySchema.node("paragraph")]);
+  }
 
   const editorKeymap = keymap({
     "Mod-z": (state, dispatch) => {
@@ -63,12 +109,19 @@ export function createEditorState(
   });
 
   const toolbarUpdatePlugin = new Plugin({
-    view() {
+    view(editorView) {
       return {
         update() {
           if (viewRef.current) {
             const updateEvent = new Event("editorStateChange");
             viewRef.current.dom.dispatchEvent(updateEvent);
+          }
+          if (typeof onChange === "function") {
+            const md = defaultMarkdownSerializer.serialize(
+              editorView.state.doc
+            );
+
+            onChange(md);
           }
         },
       };
@@ -80,10 +133,10 @@ export function createEditorState(
     plugins: [
       history(),
       buildInputRules(mySchema),
-    //   menuBar({ floating: true, content: buildMenuItems(mySchema).fullMenu }), // just for tesing
+      //   menuBar({ floating: true, content: buildMenuItems(mySchema).fullMenu }), // just for tesing
       editorKeymap,
       keymap({
-        "Enter": splitListItem(mySchema.nodes.list_item),
+        Enter: splitListItem(mySchema.nodes.list_item),
         "Mod-[": liftListItem(mySchema.nodes.list_item),
         "Mod-]": sinkListItem(mySchema.nodes.list_item),
       }),

@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import { db } from "@/db/dbConnect";
 import { docs } from "@/db/schema/auth-schema";
 import { and, eq } from "drizzle-orm";
-import { CreateDocSchema } from "./zodValidations";
+import { CreateDocSchema, UpdateDocSchema } from "./zodValidations";
 import { cache } from "react";
 
 const ai = new GoogleGenAI({
@@ -71,4 +71,18 @@ export const createUserDocs = async (payload: CreateDocSchema) => {
     })
     .returning();
   return response[0];
+};
+export const updateUserDocs = async ( payload: UpdateDocSchema) => {
+  const session = await getServerUserSession();
+  
+  if (!session) throw new Error("Unauthorized");
+  const res = await db
+    .update(docs)
+    .set({
+      title: payload.title,
+      content: payload.content,
+    })
+    .where(eq(docs.id, payload.docId))
+    .returning();
+  return res[0];
 };

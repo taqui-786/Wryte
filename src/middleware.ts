@@ -1,24 +1,29 @@
+import { getSessionCookie } from "better-auth/cookies";
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 
 export async function middleware(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const sessionCookie = getSessionCookie(request);
 
-  const pathname = request.nextUrl.pathname;
-
-  if (session) {
-    if (pathname === "/" || pathname === "/signin") {
-      return NextResponse.redirect(new URL("/write", request.url));
-    }
-  } 
-
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL("/", request.url));
+  } else if (sessionCookie && request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/write", request.url));
+  }
   return NextResponse.next();
 }
 
 export const config = {
-  runtime: "nodejs",
-  matcher: ["/", "/signin", "/write"], 
+  matcher: [
+    // Match everything except:
+    // - / (root)
+    // - /api
+    // - /_next/static
+    // - /_next/image
+    // - /contact
+    // - /brand-assets
+    // - /terms
+    // - /privacy
+    // - /images
+    "/((?!api|signin|_next/static|_next/image|contact|terms|brand-assets|privacy|images|$).*)",
+  ],
 };

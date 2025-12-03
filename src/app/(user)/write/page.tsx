@@ -1,4 +1,4 @@
-import WriteClient from '@/components/ui/WriteClient'
+import WriteClient from "@/components/WriteClient"
 
 function page() {
   return (

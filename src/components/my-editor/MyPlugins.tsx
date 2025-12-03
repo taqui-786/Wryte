@@ -6,7 +6,10 @@ export function placeholderPlugin(placeholderText: string) {
   return new Plugin({
     props: {
       decorations(state) {
-        const docEmpty = state.doc.childCount === 1 && state.doc.firstChild?.isTextblock && state.doc.firstChild.content.size === 0;
+        const docEmpty =
+          state.doc.childCount === 1 &&
+          state.doc.firstChild?.isTextblock &&
+          state.doc.firstChild.content.size === 0;
         if (!docEmpty) return null;
 
         const deco = document.createElement("span");
@@ -15,10 +18,10 @@ export function placeholderPlugin(placeholderText: string) {
 
         const from = 1;
         return DecorationSet.create(state.doc, [
-          Decoration.widget(from, () => deco)
+          Decoration.widget(from, () => deco),
         ]);
-      }
-    }
+      },
+    },
   });
 }
 export function autocompletePlugin() {
@@ -45,7 +48,7 @@ export function autocompletePlugin() {
 
           if (isAutocompleteActive) {
             event.preventDefault();
-            decorationSet = null; 
+            decorationSet = null;
             isAutocompleteActive = false;
             const tr = state.tr.insertText(currentSuggestion);
             view.dispatch(tr);
@@ -53,8 +56,10 @@ export function autocompletePlugin() {
           }
 
           // Get text before cursor for context (limit to last 200 characters for performance)
-          const fullTextBefore = state.doc.textBetween(0, from).trim();
-          const textBefore = fullTextBefore.slice(-250); 
+          const fullTextBefore = state.doc.textBetween(0, from);
+          const textBefore = fullTextBefore.slice(-250);
+          console.log({ textBefore });
+
           const words = textBefore
             .split(/\s+/)
             .filter((word) => word.length > 0);
@@ -71,10 +76,10 @@ export function autocompletePlugin() {
             // Set a timeout to call the AI autocomplete
             timeoutId = setTimeout(async () => {
               try {
-                console.log(textBefore);
-
                 // const completion = "hey there"
                 // Get current node type for context-aware completion
+                const endsWithSpace = (str:string) => /\s$/.test(str);
+
                 const currentPos = state.selection.from;
                 const currentNode =
                   state.doc.resolve(currentPos).parent.type.name || "paragraph";
@@ -82,7 +87,11 @@ export function autocompletePlugin() {
                 const completion = await autoComplete({
                   context: textBefore,
                   node: currentNode,
+                  endWithSpace:endsWithSpace(textBefore)
                 });
+                console.log({completion});
+                console.log(endsWithSpace(textBefore));
+
                 currentSuggestion = completion;
 
                 if (completion) {
