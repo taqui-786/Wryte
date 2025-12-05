@@ -2,12 +2,13 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { nodes as basicNodes, marks } from "./myEditorSchema";
-import { DOMParser, Schema } from "prosemirror-model";
+import { DOMParser, Schema, Slice } from "prosemirror-model";
 import { orderedList, bulletList, listItem } from "prosemirror-schema-list";
 import { MyEditorToolbar } from "./MyEditorToolbar";
 import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
 import { EditorView } from "prosemirror-view";
 import { createEditorState } from "./EditorConfig";
+import { defaultMarkdownParser } from "prosemirror-markdown";
 // @ts-ignore
 import "./myEditorStyle.css";
 import { marked } from "marked";
@@ -55,6 +56,19 @@ const [run, setRun] = useState(false)
       state,
       attributes: {
         class: "prose-editor",
+      },
+      handlePaste(view, event, slice) {
+        const text = event.clipboardData?.getData('text/plain');
+        if (text) {
+          const html = marked.parse(text) as string;
+          const temp = document.createElement('div');
+          temp.innerHTML = html;
+          const parsedDoc = DOMParser.fromSchema(mySchema).parse(temp);
+          const tr = view.state.tr.replaceSelection(new Slice(parsedDoc.content, 0, 0));
+          view.dispatch(tr);
+          return true;
+        }
+        return false;
       },
 
       dispatchTransaction: (transaction) => {

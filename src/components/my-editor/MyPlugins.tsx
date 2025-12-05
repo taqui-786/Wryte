@@ -1,6 +1,9 @@
 import { autoComplete } from "@/lib/model";
 import { Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
+import { marked } from "marked";
+import { DOMParser } from "prosemirror-model";
+import { defaultMarkdownSerializer } from "prosemirror-markdown";
 
 export function placeholderPlugin(placeholderText: string) {
   return new Plugin({
@@ -24,7 +27,7 @@ export function placeholderPlugin(placeholderText: string) {
     },
   });
 }
-export function autocompletePlugin() {
+export function autocompletePlugin(schema: any) {
   let decorationSet: DecorationSet | null = null;
   let isAutocompleteActive = false;
   let currentSuggestion = "";
@@ -50,14 +53,29 @@ export function autocompletePlugin() {
             event.preventDefault();
             decorationSet = null;
             isAutocompleteActive = false;
-            const tr = state.tr.insertText(currentSuggestion);
+            const html = marked.parse(currentSuggestion) as string;
+            const temp = document.createElement("div");
+            temp.innerHTML = html;
+            const parsedDoc = DOMParser.fromSchema(schema).parse(temp);
+            let contentToInsert = parsedDoc.content;
+            if (
+              parsedDoc.content.childCount === 1 &&
+              parsedDoc.content.firstChild?.type.name === "paragraph"
+            ) {
+              contentToInsert = parsedDoc.content.firstChild.content;
+            }
+            const tr = state.tr.insert(from, contentToInsert);
+
             view.dispatch(tr);
+
             return true;
           }
 
-          // Get text before cursor for context (limit to last 200 characters for performance)
-          const fullTextBefore = state.doc.textBetween(0, from);
-          const textBefore = fullTextBefore.slice(-250);
+          // Get markdown before cursor for context (limit to last 500 characters for performance)
+          const prefixContent = state.doc.content.cut(0, from);
+          const prefixDoc = schema.node('doc', null, prefixContent);
+          const fullMarkdown = defaultMarkdownSerializer.serialize(prefixDoc);
+          const textBefore = fullMarkdown.slice(-800);
           console.log({ textBefore });
 
           const words = textBefore
@@ -73,12 +91,42 @@ export function autocompletePlugin() {
               clearTimeout(timeoutId);
             }
 
+            // Set loading decoration
+            const parentDiv = document.createElement('div');
+            parentDiv.style.display = 'inline-flex';
+            parentDiv.style.alignItems = 'center';
+            parentDiv.style.justifyContent = 'center';
+            parentDiv.style.marginLeft = '4px';
+            const spinnerContainer = document.createElement('span');
+            spinnerContainer.style.display = 'inline-block';
+            spinnerContainer.style.verticalAlign = 'baseline';
+            const spinnerSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            spinnerSvg.setAttribute('width', '16');
+            spinnerSvg.setAttribute('height', '16');
+            spinnerSvg.setAttribute('viewBox', '0 0 24 24');
+            spinnerSvg.style.opacity = '0.7';
+            spinnerSvg.setAttribute('class', 'animate-spin');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', 'currentColor');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('stroke-width', '1.5');
+            path.setAttribute('d', 'M18.001 20A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10c0 .863-.11 1.701-.315 2.5c-.223.867-1.17 1.27-2.015.973c-.718-.253-1.048-1.073-.868-1.813A7 7 0 1 0 15.608 18');
+            path.setAttribute('color', 'currentColor');
+            spinnerSvg.appendChild(path);
+            spinnerContainer.appendChild(spinnerSvg);
+            parentDiv.appendChild(spinnerContainer);
+            decorationSet = DecorationSet.create(view.state.doc, [
+              Decoration.widget(from, () => parentDiv),
+            ]);
+            view.dispatch(view.state.tr);
+
             // Set a timeout to call the AI autocomplete
             timeoutId = setTimeout(async () => {
               try {
-                // const completion = "hey there"
-                // Get current node type for context-aware completion
-                const endsWithSpace = (str:string) => /\s$/.test(str);
+      
+                const endsWithSpace = (str: string) => /\s$/.test(str);
 
                 const currentPos = state.selection.from;
                 const currentNode =
@@ -87,17 +135,22 @@ export function autocompletePlugin() {
                 const completion = await autoComplete({
                   context: textBefore,
                   node: currentNode,
-                  endWithSpace:endsWithSpace(textBefore)
+                  endWithSpace: endsWithSpace(textBefore),
                 });
-                console.log({completion});
-                console.log(endsWithSpace(textBefore));
 
                 currentSuggestion = completion;
 
                 if (completion) {
+                  const html = marked.parse(completion) as string;
+                  const temp = document.createElement("div");
+                  temp.innerHTML = html;
+                  let innerHTML = html;
+                  if (temp.firstElementChild?.tagName === "P") {
+                    innerHTML = temp.firstElementChild.innerHTML;
+                  }
                   const deco = document.createElement("span");
                   deco.className = "editor-autocomplete-placeholder";
-                  deco.textContent = completion;
+                  deco.innerHTML = innerHTML;
                   deco.style.opacity = "0.7";
                   deco.style.color = "#888";
 

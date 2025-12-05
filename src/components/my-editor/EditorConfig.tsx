@@ -143,7 +143,7 @@ export function createEditorState(
       keymap(baseKeymap),
       dropCursor(),
       placeholderPlugin("Let's start writing your document..."),
-      autocompletePlugin(),
+      autocompletePlugin(mySchema),
       gapCursor(),
       toolbarUpdatePlugin,
       selectionSizeTooltipPlugin,

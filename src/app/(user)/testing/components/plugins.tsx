@@ -76,18 +76,18 @@ export function autocompletePlugin() {
             // Set a timeout to call the AI autocomplete
             timeoutId = setTimeout(async () => {
               try {
-                console.log(textBefore);
+                const endsWithSpace = (str:string) => /\s$/.test(str);
 
                 // const completion = "hey there"
                 // Get current node type for context-aware completion
                 const currentPos = state.selection.from;
                 const currentNode =
                   state.doc.resolve(currentPos).parent.type.name || "paragraph";
-                console.log("Current node type:", currentNode);
 
                 const completion = await autoComplete({
                   context: textBefore,
                   node: currentNode,
+                  endWithSpace:endsWithSpace(textBefore),
                 });
                 currentSuggestion = completion;
 
