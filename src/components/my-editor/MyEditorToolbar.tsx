@@ -263,7 +263,7 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
   };
 
   return (
-    <div className="border-b border-b-primary   rounded-none px-3 py-2 bg-background">
+    <div className="border-b border-b-border   rounded-none px-3 py-2 bg-background">
       <div className="flex flex-wrap gap-2">
         <div className="flex gap-1 mr-4">
           <Button
@@ -288,7 +288,7 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
           </Button>
         </div>
 
-        <div className="flex gap-1 border-x border-x-primary px-2">
+        <div className="flex gap-1 border-x border-x-border px-2">
           <Button
             size={"icon-sm"}
             variant={"ghost"}
@@ -348,7 +348,7 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
           </Button>
         </div>
 
-        <div className="flex gap-1 border-r border-r-primary pr-2">
+        <div className="flex gap-1 border-r border-r-border pr-2">
           <Button
             size={"icon-sm"}
             variant={"ghost"}
@@ -380,7 +380,7 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
             <Heading3Solid size={"16"} />
           </Button>
         </div>
-        <div className="flex gap-1 border-r border-r-primary pr-2">
+        <div className="flex gap-1 border-r border-r-border pr-2">
           <Button
             size={"icon-sm"}
             variant={"ghost"}

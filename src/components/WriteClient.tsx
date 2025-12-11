@@ -205,7 +205,7 @@ function WriteClient() {
       <Input
         type="text"
         placeholder="Write a heading of your post..."
-        className=" w-full border-primary rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
+        className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
         value={heading}
         onChange={handleHeadingChange}
       />

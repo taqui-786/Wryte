@@ -2,7 +2,7 @@ import { autoComplete } from "@/lib/model";
 import { Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { marked } from "marked";
-import { DOMParser } from "prosemirror-model";
+import { DOMParser, Fragment } from "prosemirror-model";
 import { defaultMarkdownSerializer } from "prosemirror-markdown";
 
 export function placeholderPlugin(placeholderText: string) {
@@ -53,7 +53,12 @@ export function autocompletePlugin(schema: any) {
             event.preventDefault();
             decorationSet = null;
             isAutocompleteActive = false;
-            const html = marked.parse(currentSuggestion) as string;
+
+            // Preserve leading space before parsing (HTML parsing strips it)
+            const hasLeadingSpace = /^\s/.test(currentSuggestion);
+            const suggestionToMarse = currentSuggestion.trim();
+
+            const html = marked.parse(suggestionToMarse) as string;
             const temp = document.createElement("div");
             temp.innerHTML = html;
             const parsedDoc = DOMParser.fromSchema(schema).parse(temp);
@@ -64,6 +69,14 @@ export function autocompletePlugin(schema: any) {
             ) {
               contentToInsert = parsedDoc.content.firstChild.content;
             }
+
+            // Re-add the leading space if it was present
+            if (hasLeadingSpace) {
+              const spaceNode = schema.text(" ");
+              contentToInsert =
+                Fragment.from(spaceNode).append(contentToInsert);
+            }
+
             const tr = state.tr.insert(from, contentToInsert);
 
             view.dispatch(tr);
@@ -73,10 +86,9 @@ export function autocompletePlugin(schema: any) {
 
           // Get markdown before cursor for context (limit to last 500 characters for performance)
           const prefixContent = state.doc.content.cut(0, from);
-          const prefixDoc = schema.node('doc', null, prefixContent);
+          const prefixDoc = schema.node("doc", null, prefixContent);
           const fullMarkdown = defaultMarkdownSerializer.serialize(prefixDoc);
           const textBefore = fullMarkdown.slice(-800);
-          console.log({ textBefore });
 
           const words = textBefore
             .split(/\s+/)
@@ -92,28 +104,37 @@ export function autocompletePlugin(schema: any) {
             }
 
             // Set loading decoration
-            const parentDiv = document.createElement('div');
-            parentDiv.style.display = 'inline-flex';
-            parentDiv.style.alignItems = 'center';
-            parentDiv.style.justifyContent = 'center';
-            parentDiv.style.marginLeft = '4px';
-            const spinnerContainer = document.createElement('span');
-            spinnerContainer.style.display = 'inline-block';
-            spinnerContainer.style.verticalAlign = 'baseline';
-            const spinnerSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            spinnerSvg.setAttribute('width', '16');
-            spinnerSvg.setAttribute('height', '16');
-            spinnerSvg.setAttribute('viewBox', '0 0 24 24');
-            spinnerSvg.style.opacity = '0.7';
-            spinnerSvg.setAttribute('class', 'animate-spin');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('fill', 'none');
-            path.setAttribute('stroke', 'currentColor');
-            path.setAttribute('stroke-linecap', 'round');
-            path.setAttribute('stroke-linejoin', 'round');
-            path.setAttribute('stroke-width', '1.5');
-            path.setAttribute('d', 'M18.001 20A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10c0 .863-.11 1.701-.315 2.5c-.223.867-1.17 1.27-2.015.973c-.718-.253-1.048-1.073-.868-1.813A7 7 0 1 0 15.608 18');
-            path.setAttribute('color', 'currentColor');
+            const parentDiv = document.createElement("div");
+            parentDiv.style.display = "inline-flex";
+            parentDiv.style.alignItems = "center";
+            parentDiv.style.justifyContent = "center";
+            parentDiv.style.marginLeft = "4px";
+            const spinnerContainer = document.createElement("span");
+            spinnerContainer.style.display = "inline-block";
+            spinnerContainer.style.verticalAlign = "baseline";
+            const spinnerSvg = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "svg"
+            );
+            spinnerSvg.setAttribute("width", "16");
+            spinnerSvg.setAttribute("height", "16");
+            spinnerSvg.setAttribute("viewBox", "0 0 24 24");
+            spinnerSvg.style.opacity = "0.7";
+            spinnerSvg.setAttribute("class", "animate-spin");
+            const path = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "path"
+            );
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", "currentColor");
+            path.setAttribute("stroke-linecap", "round");
+            path.setAttribute("stroke-linejoin", "round");
+            path.setAttribute("stroke-width", "1.5");
+            path.setAttribute(
+              "d",
+              "M18.001 20A9.96 9.96 0 0 1 12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10c0 .863-.11 1.701-.315 2.5c-.223.867-1.17 1.27-2.015.973c-.718-.253-1.048-1.073-.868-1.813A7 7 0 1 0 15.608 18"
+            );
+            path.setAttribute("color", "currentColor");
             spinnerSvg.appendChild(path);
             spinnerContainer.appendChild(spinnerSvg);
             parentDiv.appendChild(spinnerContainer);
@@ -125,17 +146,50 @@ export function autocompletePlugin(schema: any) {
             // Set a timeout to call the AI autocomplete
             timeoutId = setTimeout(async () => {
               try {
-      
                 const endsWithSpace = (str: string) => /\s$/.test(str);
 
                 const currentPos = state.selection.from;
                 const currentNode =
                   state.doc.resolve(currentPos).parent.type.name || "paragraph";
 
+                // Extract the last word for incomplete word detection
+                const lastWord = textBefore.split(/\s+/).pop() || "";
+
+                // Detect if the last word is likely incomplete
+                // Heuristics: short word, no punctuation at end, looks like a fragment
+                const isIncompleteWord =
+                  !endsWithSpace(textBefore) &&
+                  (lastWord.length < 4 || // Very short words might be incomplete
+                    /[bcdfghjklmnpqrstvwxyz]{2,}$/i.test(lastWord) || // Ends with multiple consonants
+                    (/(ing|ed|er|est|tion|ness|ment|ly)$/.test(lastWord) ===
+                      false &&
+                      lastWord.length < 8)); // Doesn't have common endings and is short
+
+                // Determine spacing strategy
+                // TRUE = space-separated (new word/phrase)
+                // FALSE = word completion (no space)
+                let needsSpaceSeparation;
+                if (endsWithSpace(textBefore)) {
+                  // Context ends with space → always new word, no leading space in completion
+                  needsSpaceSeparation = false;
+                } else {
+                  // Context doesn't end with space → check if incomplete word
+                  needsSpaceSeparation = !isIncompleteWord;
+                }
+
                 const completion = await autoComplete({
                   context: textBefore,
                   node: currentNode,
-                  endWithSpace: endsWithSpace(textBefore),
+                  endWithSpace: needsSpaceSeparation,
+                  lastWord: lastWord,
+                  isIncompleteWord: isIncompleteWord,
+                });
+                console.log({
+                  completion,
+                  lastWord,
+                  isIncompleteWord,
+                  needsSpaceSeparation,
+                  contextEndsWithSpace: endsWithSpace(textBefore),
                 });
 
                 currentSuggestion = completion;

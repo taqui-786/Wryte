@@ -37,14 +37,14 @@ function MyEditor({
   value: string;
   onChange?: (value: string) => void;
 }) {
-  
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-const [run, setRun] = useState(false)
+  const [run, setRun] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   useEffect(() => {
     if (!editorRef.current) return;
 
-    const state = createEditorState(mySchema, viewRef,null,onChange);
+    const state = createEditorState(mySchema, viewRef, null, onChange);
 
     const toolLink = document.querySelectorAll("tool-link");
 
@@ -57,14 +57,26 @@ const [run, setRun] = useState(false)
       attributes: {
         class: "prose-editor",
       },
+      handleDOMEvents: {
+        focus: () => {
+          setIsFocused(true);
+          return false;
+        },
+        blur: () => {
+          setIsFocused(false);
+          return false;
+        },
+      },
       handlePaste(view, event, slice) {
-        const text = event.clipboardData?.getData('text/plain');
+        const text = event.clipboardData?.getData("text/plain");
         if (text) {
           const html = marked.parse(text) as string;
-          const temp = document.createElement('div');
+          const temp = document.createElement("div");
           temp.innerHTML = html;
           const parsedDoc = DOMParser.fromSchema(mySchema).parse(temp);
-          const tr = view.state.tr.replaceSelection(new Slice(parsedDoc.content, 0, 0));
+          const tr = view.state.tr.replaceSelection(
+            new Slice(parsedDoc.content, 0, 0)
+          );
           view.dispatch(tr);
           return true;
         }
@@ -156,34 +168,38 @@ const [run, setRun] = useState(false)
       }
     };
   }, []);
-useEffect(() => {
-  if (!viewRef.current || !value) return;
-  if(run) return
-setRun(true)
-  try {
-    // Convert markdown → HTML
-    const html = marked.parse(value);
-    // Parse HTML → ProseMirror doc
-    const parser = DOMParser.fromSchema(mySchema);
-    const temp = document.createElement("div");
-    temp.innerHTML = html as string;
-    const newDoc = parser.parse(temp);
+  useEffect(() => {
+    if (!viewRef.current || !value) return;
+    if (run) return;
+    setRun(true);
+    try {
+      // Convert markdown → HTML
+      const html = marked.parse(value);
+      // Parse HTML → ProseMirror doc
+      const parser = DOMParser.fromSchema(mySchema);
+      const temp = document.createElement("div");
+      temp.innerHTML = html as string;
+      const newDoc = parser.parse(temp);
 
-    // Replace the editor content
-    const view = viewRef.current;
-    const tr = view.state.tr.replaceWith(
-      0,
-      view.state.doc.content.size,
-      newDoc.content
-    );
+      // Replace the editor content
+      const view = viewRef.current;
+      const tr = view.state.tr.replaceWith(
+        0,
+        view.state.doc.content.size,
+        newDoc.content
+      );
 
-    view.dispatch(tr);
-  } catch (err) {
-    console.error("Markdown parsing failed:", err);
-  }
-}, [value]);
+      view.dispatch(tr);
+    } catch (err) {
+      console.error("Markdown parsing failed:", err);
+    }
+  }, [value]);
   return (
-    <div className=" h-fit border border-primary">
+    <div
+      className={`h-fit border transition-colors duration-200 group ${
+        isFocused ? "border-primary ring-2 ring-primary/20" : "border-border"
+      }`}
+    >
       <MyEditorToolbar viewRef={viewRef} mySchema={mySchema} />
 
       <div ref={editorRef} spellCheck={false} />

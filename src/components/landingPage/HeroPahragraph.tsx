@@ -66,9 +66,9 @@ const ArrowRightIcon = ({ size, className }: ArrowRight02Props) => (
     <path
       fill="none"
       stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.5"
       d="M20 12H4m11 5s5-3.682 5-5s-5-5-5-5"
       color="currentColor"
     />

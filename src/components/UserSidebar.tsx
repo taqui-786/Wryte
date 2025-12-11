@@ -128,7 +128,7 @@ function UserSidebar() {
                                   asChild
                                   className={
                                     subItem.isActive
-                                      ? "bg-accent text-accent-foreground"
+                                      ? "text-primary bg-accent"
                                       : ""
                                   }
                                 >

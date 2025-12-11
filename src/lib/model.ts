@@ -10,12 +10,30 @@ export async function autoComplete({
   context,
   node,
   endWithSpace,
+  lastWord = "",
+  isIncompleteWord = false,
 }: {
   context: string;
   node: string;
   endWithSpace: boolean;
+  lastWord?: string;
+  isIncompleteWord?: boolean;
 }): Promise<string> {
-  
+  // Extract recent context for better semantic understanding
+  const getRecentContext = (text: string, maxChars: number = 500): string => {
+    if (text.length <= maxChars) return text;
+    return "..." + text.slice(-maxChars);
+  };
+
+  // Analyze the last few sentences for context
+  const getLastSentences = (text: string, count: number = 2): string => {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+    return sentences.slice(-count).join(" ");
+  };
+
+  const recentContext = getRecentContext(context);
+  const lastSentences = getLastSentences(context);
+
   // MARKDOWN RULES (condensed reference)
   const MARKDOWN_FORMATTING_RULES = `
 Inline: **bold** *italic* ~~strike~~ \`code\` [link](url) <u>underline</u>
@@ -24,55 +42,120 @@ Heading levels: # H1, ## H2, ### H3, #### H4, ##### H5, ###### H6
 Emphasis priority: Bold > Italic when syntax conflicts
 Usage: Apply formatting to emphasize key concepts, technical terms, or important phrases`;
 
-// SYSTEM PROMPT
-const systemPrompt = `You are a text completion AI for a markdown editor.
+  // SYSTEM PROMPT
+  const systemPrompt = `You are an intelligent text completion AI for a markdown-based writing editor called "Wryte".
 
-Node: ${node}
+Current Node Type: ${node}
+
+CORE OBJECTIVE:
+Generate natural, contextually relevant text continuations that seamlessly extend the writer's thought.
 
 MARKDOWN_FORMATTING_RULES:
 ${MARKDOWN_FORMATTING_RULES}
 
-ABSOLUTE SPACING RULES - FOLLOW EXACTLY:
+⚠️ ABSOLUTE SPACING RULES - THIS IS THE MOST CRITICAL REQUIREMENT ⚠️
 
-1. Check if context ends with space character:
-   - Ends with space → NO space at start of output
-   - Does NOT end with space → GO TO STEP 2
+INTELLIGENT WORD COMPLETION DETECTION:
 
-2. Check endWithSpace parameter:
-   - endWithSpace=true → START OUTPUT WITH SPACE " "
-   - endWithSpace=false → NO space at start of output
+You are given two critical parameters:
+1. **lastWord**: The last word/fragment the user typed (e.g., "creat", "element", "have")
+2. **isIncompleteWord**: Boolean flag indicating if this word looks incomplete
 
-EXAMPLES (study these):
-• Context: "and " (has space) | endWithSpace=true → "performance matters"
-• Context: "and" (no space) | endWithSpace=true → " performance matters"  
-• Context: "expectations" (no space) | endWithSpace=true → " and insights"
-• Context: "amaz" (no space) | endWithSpace=false → "ing breakthrough"
+COMPLETION STRATEGY:
 
-COMPLETION RULES:
-- Output 5-15 words of natural continuation
-- NO quotes, ellipses, or starting punctuation
-- Use markdown (**bold**, *italic*) strategically
-- Match the tone and style of input
-- For headings: keep concise (3-8 words)
+A) **INCOMPLETE WORD COMPLETION** (isIncompleteWord = true):
+   → Complete the word WITHOUT leading space
+   → Examples:
+     • lastWord: "creat" → "ed a beautiful design" (complete "created")
+     • lastWord: "writ" → "ing and editing features" (complete "writing")
+     • lastWord: "tes" → "ting the application thoroughly" (complete "testing")
+
+B) **NEW PHRASE CONTINUATION** (isIncompleteWord = false):
+   → Follow the standard spacing rules below
+
+STEP-BY-STEP SPACING LOGIC (MUST FOLLOW EXACTLY):
+
+STEP 1: Does the context end with a space character?
+   → YES (context ends with space): Output MUST NOT start with space
+   → NO (context does NOT end with space): Go to STEP 2
+
+STEP 2: Check the endWithSpace parameter value:
+   → endWithSpace=true: Output MUST START WITH EXACTLY ONE SPACE " "
+   → endWithSpace=false: Output MUST NOT start with space
+
+CRITICAL SPACING EXAMPLES - MEMORIZE THESE PATTERNS:
+✓ lastWord: "creat" + isIncompleteWord: true → "ed and tested properly" (NO space, completes word)
+✓ lastWord: "created" + isIncompleteWord: false + endWithSpace: true → " and tested properly" (WITH space, new phrase)
+✓ Context: "and " (HAS space) + endWithSpace=true → "performance matters" (NO leading space)
+✓ Context: "and" (NO space) + endWithSpace=true → " performance matters" (ONE leading space)
+✓ Context: "expectations" (NO space) + endWithSpace=true → " and insights" (ONE leading space)
+✓ Context: "amaz" (NO space) + endWithSpace=false → "ing breakthrough" (NO leading space)
+
+WHY THIS MATTERS: Correct spacing makes autocomplete feel intelligent and seamless.
+WRONG spacing makes it feel broken and annoying to users.
+
+INTELLIGENT COMPLETION RULES:
+1. **Length**: 5-15 words (adjust based on context - shorter for headings, longer for paragraphs)
+2. **Coherence**: Complete the current thought naturally
+3. **Style Matching**: Mirror the tone, formality, and writing style of the input
+4. **Formatting**: Use markdown strategically to emphasize key concepts
+5. **Grammar**: Ensure perfect grammar and sentence structure
+6. **Predictability**: Anticipate the writer's intention based on context
+7. **No artifacts**: NO quotes around output, NO ellipses, NO starting punctuation (unless grammatically required)
+
+NODE-SPECIFIC RULES:
+- **Headings** (# ## ###): Keep concise (3-8 words), action-oriented, descriptive
+- **Paragraphs**: Natural flow, complete thoughts, use formatting for emphasis
+- **Lists**: Parallel structure, consistent tone, concise items
+- **Code blocks**: Technical accuracy, proper syntax, clear variable names
+
+CONTEXT AWARENESS:
+- Analyze the recent sentences to understand the topic and direction
+- Detect patterns (technical writing, creative writing, documentation, etc.)
+- Maintain consistency with established terminology and concepts
+- Consider the document's overall narrative flow
 
 Your output must be ONLY the completion text with correct spacing.`;
 
-// USER PROMPT  
-const userPrompt = `Context ends with: "${context.slice(-1)}"
-Full context: "${context}"
+  // USER PROMPT
+  const userPrompt = `Recent context: "${recentContext}"
+Last sentences: "${lastSentences}"
+Context ends with: "${context.slice(-1)}"
+Current incomplete text: "${context.slice(-50)}"
+Last word typed: "${lastWord}"
+Is incomplete word: ${isIncompleteWord}
 Node: ${node}
 endWithSpace: ${endWithSpace}
 
-Apply spacing rules and complete:`;
+Generate intelligent completion:`;
+
   try {
     const response = await client.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
+      temperature: 0.7,
+      max_tokens: 50,
     });
-    return response.choices[0].message.content || "";
+
+    let completion = response.choices[0].message.content || "";
+
+    const contextEndsWithSpace = /\s$/.test(context);
+
+    if (contextEndsWithSpace) {
+
+      completion = completion.replace(/^\s+/, "");
+    } else {
+      if (endWithSpace) {
+        completion = " " + completion.replace(/^\s+/, "");
+      } else {
+        completion = completion.replace(/^\s+/, "");
+      }
+    }
+
+    return completion;
   } catch (error) {
     console.error("Autocomplete error:", error);
     return "";
