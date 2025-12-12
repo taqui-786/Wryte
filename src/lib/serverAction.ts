@@ -72,9 +72,9 @@ export const createUserDocs = async (payload: CreateDocSchema) => {
     .returning();
   return response[0];
 };
-export const updateUserDocs = async ( payload: UpdateDocSchema) => {
+export const updateUserDocs = async (payload: UpdateDocSchema) => {
   const session = await getServerUserSession();
-  
+
   if (!session) throw new Error("Unauthorized");
   const res = await db
     .update(docs)
@@ -85,4 +85,13 @@ export const updateUserDocs = async ( payload: UpdateDocSchema) => {
     .where(eq(docs.id, payload.docId))
     .returning();
   return res[0];
+};
+export const deleteUserDocs = async (docId: string) => {
+  const session = await getServerUserSession();
+  if (!session) throw new Error("Unauthorized");
+  const response = await db
+    .delete(docs)
+    .where(and(eq(docs.id, docId), eq(docs.userId, session.user.id)))
+    .returning();
+  return response[0];
 };

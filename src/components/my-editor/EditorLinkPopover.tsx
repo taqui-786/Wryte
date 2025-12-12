@@ -7,26 +7,24 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {  Trash2 } from "lucide-react";
+import { Trash2, ExternalLink } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import { EditorView } from "prosemirror-view";
 import { Label } from "@/components/ui/label";
 import { LinkSolid } from "./editorIcons";
 
 interface LinkPopoverProps {
-  currentHref: string;
   viewRef: React.MutableRefObject<EditorView | null>;
   mySchema: any;
 }
 
- function EditorLinkPopover({
-  viewRef,
-  mySchema,
-  currentHref = "",
-}: LinkPopoverProps) {
+function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
-  const [linkHref, setLinkHref] = useState(currentHref);
+  const [linkHref, setLinkHref] = useState("");
   const [linkTitle, setLinkTitle] = useState("");
+  const [isEditingExistingLink, setIsEditingExistingLink] = useState(false);
+
+  // Check if link mark is active at current cursor position
   const isLinkActive = () => {
     if (!viewRef.current) return false;
     const state = viewRef.current.state;
@@ -35,77 +33,180 @@ interface LinkPopoverProps {
     if (empty) return !!markType.isInSet(state.storedMarks || $from.marks());
     else return state.doc.rangeHasMark(from, to, markType);
   };
+
+  // Get link attributes at cursor position
+  const getLinkAtCursor = () => {
+    if (!viewRef.current) return null;
+    const { state } = viewRef.current;
+    const { from, $from, to } = state.selection;
+    const markType = mySchema.marks.link;
+
+    // Check marks at cursor position
+    const marks = $from.marks();
+    const linkMark = marks.find((m: any) => m.type === markType);
+
+    if (linkMark) {
+      return linkMark.attrs;
+    }
+
+    // If selection range, check if entire range has link mark
+    if (from !== to) {
+      let foundAttrs: any = null;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (!foundAttrs && node.marks) {
+          const mark = node.marks.find((m) => m.type === markType);
+          if (mark) {
+            foundAttrs = mark.attrs;
+          }
+        }
+      });
+      return foundAttrs;
+    }
+
+    return null;
+  };
+
+  // Detect and populate existing link when popover opens
   useEffect(() => {
-    if (currentHref) setLinkHref(currentHref);
-  }, [currentHref]);
+    if (isLinkPopoverOpen) {
+      const linkAttrs = getLinkAtCursor();
+      if (linkAttrs) {
+        setLinkHref(linkAttrs.href || "");
+        setLinkTitle(linkAttrs.title || "");
+        setIsEditingExistingLink(true);
+      } else {
+        setLinkHref("");
+        setLinkTitle("");
+        setIsEditingExistingLink(false);
+      }
+    } else {
+      // Reset states when popover closes
+      setLinkHref("");
+      setLinkTitle("");
+      setIsEditingExistingLink(false);
+    }
+  }, [isLinkPopoverOpen]);
 
   const toggleLink = () => {
     if (!viewRef.current) return;
     setIsLinkPopoverOpen(true);
     viewRef.current.focus();
   };
+
   const removeLink = () => {
     if (!viewRef.current) return;
     const { state, dispatch } = viewRef.current;
-    const { from, to, empty } = state.selection;
+    const { from, to, empty, $from } = state.selection;
     const markType = mySchema.marks.link;
 
     if (isLinkActive()) {
-      let tr: any;
       if (empty) {
-        tr = state.tr.removeStoredMark(markType);
+        // Cursor is within a link - find the full extent of the link
+        const linkMark = $from.marks().find((m: any) => m.type === markType);
+
+        if (linkMark) {
+          // Find the range of the link by walking the document
+          let start = from;
+          let end = from;
+
+          // Walk backwards to find link start
+          let pos = from - 1;
+          while (pos >= $from.start()) {
+            const resolvedPos = state.doc.resolve(pos);
+            const marks = resolvedPos.marks();
+            const hasMatchingLink = marks.some(
+              (m: any) => m.type === markType && m.eq(linkMark)
+            );
+            if (hasMatchingLink) {
+              start = pos;
+              pos--;
+            } else {
+              break;
+            }
+          }
+
+          // Walk forwards to find link end
+          pos = from;
+          while (pos <= $from.end()) {
+            const resolvedPos = state.doc.resolve(pos);
+            const marks = resolvedPos.marks();
+            const hasMatchingLink = marks.some(
+              (m: any) => m.type === markType && m.eq(linkMark)
+            );
+            if (hasMatchingLink) {
+              end = pos + 1;
+              pos++;
+            } else {
+              break;
+            }
+          }
+
+          const tr = state.tr.removeMark(start, end, markType);
+          dispatch(tr);
+        }
       } else {
-        tr = state.tr.removeMark(from, to);
+        // Text is selected - remove from selection
+        const tr = state.tr.removeMark(from, to, markType);
+        dispatch(tr);
       }
 
-      dispatch(tr);
       setIsLinkPopoverOpen(false);
-      setLinkHref("");
-      setLinkTitle("");
       viewRef.current.focus();
     }
   };
+
   const applyLink = () => {
     if (!viewRef.current || !linkHref.trim()) return;
     const { state, dispatch } = viewRef.current;
-    const { empty } = state.selection;
-    const attrs = { href: linkHref, title: linkTitle };
-
-    if (empty) {
-      const linkMark = mySchema.marks.link.create(attrs);
-      const node = mySchema.text(linkHref, [linkMark]);
-      dispatch(state.tr.replaceSelectionWith(node));
-    } else {
-      toggleMark(mySchema.marks.link, attrs)(state, dispatch);
-    }
-
-    viewRef.current.focus();
-    setIsLinkPopoverOpen(false);
-    setLinkHref("");
-    setLinkTitle("");
-  };
-  const updateLinkHref = () => {
-    if (!viewRef.current || !linkHref.trim()) return;
-    const { state, dispatch } = viewRef.current;
     const { from, to, empty } = state.selection;
-    const attrs = { href: linkHref, title: linkTitle };
+    const attrs = { href: linkHref.trim(), title: linkTitle.trim() };
     const markType = mySchema.marks.link;
 
-    if (empty) {
-      const linkMark = markType.create(attrs);
-      const node = mySchema.text(linkHref, [linkMark]);
-      dispatch(state.tr.replaceSelectionWith(node));
-    } else {
+    if (isEditingExistingLink) {
+      // Update existing link
       const tr = state.tr
         .removeMark(from, to, markType)
         .addMark(from, to, markType.create(attrs));
       dispatch(tr);
+    } else {
+    
+      if (empty) {
+
+        const displayText = linkTitle.trim() || linkHref.trim();
+        const linkMark = markType.create(attrs);
+        const linkNode = mySchema.text(displayText, [linkMark]);
+
+   
+        const tr = state.tr
+          .replaceSelectionWith(linkNode, false)
+          .insertText(" ");
+
+   
+        dispatch(tr.removeStoredMark(markType));
+      } else {
+     
+        toggleMark(markType, attrs)(state, dispatch);
+      }
     }
 
     viewRef.current.focus();
     setIsLinkPopoverOpen(false);
-    setLinkHref("");
-    setLinkTitle("");
+  };
+
+  const previewLink = () => {
+    if (linkHref.trim()) {
+      window.open(linkHref.trim(), "_blank", "noopener,noreferrer");
+    }
+  };
+
+
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return url.startsWith("http://") || url.startsWith("https://");
+    } catch {
+      return false;
+    }
   };
 
   return (
@@ -117,61 +218,83 @@ interface LinkPopoverProps {
           type="button"
           onClick={toggleLink}
           className="tool-link"
-          title="Add Link"
+          title="Add/Edit Link"
         >
           <LinkSolid size={"16"} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 z-[99999]">
+      <PopoverContent className="w-96 z-[99999]">
         <div className="grid gap-4">
           <div className="space-y-2">
-            <h4 className="font-medium leading-none">Add Link</h4>
+            <h4 className="font-semibold leading-none">
+              {isEditingExistingLink ? "Edit Link" : "Add Link"}
+            </h4>
             <p className="text-sm text-muted-foreground">
-              Enter the URL and optional title for the link.
+              {isEditingExistingLink
+                ? "Update the URL and title for this link."
+                : "Enter the URL and optional title for the link."}
             </p>
           </div>
-          <div className="grid gap-2">
-            <div className="grid grid-cols-3 items-center gap-4">
-              <Label htmlFor="href">URL</Label>
+          <div className="grid gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor="href" className="text-sm font-medium">
+                URL
+              </Label>
               <Input
                 id="href"
                 value={linkHref}
                 onChange={(e) => setLinkHref(e.target.value)}
                 placeholder="https://example.com"
-                className="col-span-2 h-8"
+                className="h-9"
+                autoFocus
               />
             </div>
-            <div className="grid grid-cols-3 items-center gap-4">
-              <Label htmlFor="title">Title</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="title" className="text-sm font-medium">
+                Title (optional)
+              </Label>
               <Input
                 id="title"
                 value={linkTitle}
                 onChange={(e) => setLinkTitle(e.target.value)}
-                placeholder="Link title (optional)"
-                className="col-span-2 h-8"
+                placeholder="Link title"
+                className="h-9"
               />
             </div>
           </div>
-          <div className="w-full flex gap-2 justify-end">
-            {currentHref ? (
-              <>
-                <Button onClick={updateLinkHref} disabled={!linkHref.trim()}>
-                  Save changes
-                </Button>
-
+          <div className="flex gap-2 justify-between items-center">
+            <div className="flex gap-2">
+              {isValidUrl(linkHref) && (
                 <Button
-                  variant={"destructive"}
-                  size={"icon-sm"}
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={previewLink}
+                  title="Open in new tab"
+                  type="button"
+                >
+                  <ExternalLink size={16} />
+                </Button>
+              )}
+              {isEditingExistingLink && (
+                <Button
+                  variant="destructive"
+                  size="icon-sm"
                   onClick={removeLink}
+                  title="Remove link"
+                  type="button"
                 >
                   <Trash2 size={16} />
                 </Button>
-              </>
-            ) : (
-              <Button onClick={applyLink} disabled={!linkHref.trim()}>
-                Apply Link
-              </Button>
-            )}
+              )}
+            </div>
+            <Button
+              onClick={applyLink}
+              disabled={!linkHref.trim()}
+              size="sm"
+              type="button"
+            >
+              {isEditingExistingLink ? "Save Changes" : "Apply Link"}
+            </Button>
           </div>
         </div>
       </PopoverContent>

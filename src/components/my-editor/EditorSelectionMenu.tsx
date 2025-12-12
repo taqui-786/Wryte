@@ -249,7 +249,7 @@ class SelectionSizeTooltip {
         <EditorLinkPopover
           viewRef={{ current: this.view } as any}
           mySchema={this.view.state.schema}
-          currentHref={currentHref || ""}
+        
         />
       </div>
     );

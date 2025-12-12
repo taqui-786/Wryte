@@ -16,7 +16,30 @@ import { DOMParser } from "prosemirror-model";
 import {
   defaultMarkdownParser,
   defaultMarkdownSerializer,
+  MarkdownSerializer,
 } from "prosemirror-markdown";
+
+// Create a custom markdown serializer that supports underline and strike marks
+const customMarkdownSerializer = new MarkdownSerializer(
+  {
+    ...defaultMarkdownSerializer.nodes,
+  },
+  {
+    ...defaultMarkdownSerializer.marks,
+    underline: {
+      open: "<u>",
+      close: "</u>",
+      mixable: true,
+      expelEnclosingWhitespace: true,
+    },
+    strike: {
+      open: "~~",
+      close: "~~",
+      mixable: true,
+      expelEnclosingWhitespace: true,
+    },
+  }
+);
 export function createEditorState(
   mySchema: any,
   viewRef: React.MutableRefObject<any>,
@@ -117,9 +140,7 @@ export function createEditorState(
             viewRef.current.dom.dispatchEvent(updateEvent);
           }
           if (typeof onChange === "function") {
-            const md = defaultMarkdownSerializer.serialize(
-              editorView.state.doc
-            );
+            const md = customMarkdownSerializer.serialize(editorView.state.doc);
 
             onChange(md);
           }

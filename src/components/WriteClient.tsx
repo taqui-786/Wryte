@@ -32,6 +32,7 @@ function WriteClient() {
   const latestHeadingRef = useRef("");
   const [open, setOpen] = useState(false);
   const latestValueRef = useRef("");
+  const isInitialLoadRef = useRef(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["page", docs],
     queryFn: async () => await getDocsById(docs as string),
@@ -39,10 +40,15 @@ function WriteClient() {
 
   useEffect(() => {
     if (docs && data && data.length > 0) {
+      isInitialLoadRef.current = true;
       setHeading(data[0].title);
       setValue(data[0].content);
       latestHeadingRef.current = data[0].title;
       latestValueRef.current = data[0].content;
+      // Allow changes after initial load completes
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 100);
     } else {
       setHeading("");
       setValue("");
@@ -63,7 +69,7 @@ function WriteClient() {
     setValue(content);
     latestValueRef.current = content;
 
-    if (!docs) {
+    if (!docs || isInitialLoadRef.current) {
       return;
     }
 
@@ -94,7 +100,7 @@ function WriteClient() {
 
     latestHeadingRef.current = newHeading;
 
-    if (docs) {
+    if (docs && !isInitialLoadRef.current) {
       // Auto-save for existing docs
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -136,14 +142,13 @@ function WriteClient() {
             <div className="flex gap-2 items-center text-muted-foreground">
               <ClockIcon size="20" />
               <span className="text-sm font-medium">
-                Last edited {" "}
+                Last edited{" "}
                 {formatDistanceToNow(new Date(data?.[0]?.updatedAt))} ago
               </span>
             </div>
           ) : (
             ""
           )}
-      
         </div>
         <div className="">
           {data?.[0]?.id && docs ? (

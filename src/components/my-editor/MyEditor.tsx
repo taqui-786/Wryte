@@ -108,10 +108,35 @@ function MyEditor({
         const { $head } = view.state.selection;
         const currentNode = $head.parent;
 
+        // Helper function to check if we're inside a specific node type
+        const isInsideNode = (nodeType: any) => {
+          for (let d = $head.depth; d > 0; d--) {
+            if ($head.node(d).type === nodeType) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        // Helper function to check if we're inside a list
+        const isInsideList = (listType: any) => {
+          for (let d = $head.depth; d > 0; d--) {
+            const node = $head.node(d);
+            if (node.type === listType) {
+              return true;
+            }
+          }
+          return false;
+        };
+
         const allNodes = [
           {
             name: "paragraph",
-            active: currentNode.type === mySchema.nodes.paragraph,
+            active:
+              currentNode.type === mySchema.nodes.paragraph &&
+              !isInsideNode(mySchema.nodes.blockquote) &&
+              !isInsideList(mySchema.nodes.bullet_list) &&
+              !isInsideList(mySchema.nodes.ordered_list),
           },
           {
             name: "heading1",
@@ -138,15 +163,15 @@ function MyEditor({
           },
           {
             name: "blockquote",
-            active: currentNode.type === mySchema.nodes.blockquote,
+            active: isInsideNode(mySchema.nodes.blockquote),
           },
           {
             name: "bullet_list",
-            active: currentNode.type === mySchema.nodes.bullet_list,
+            active: isInsideList(mySchema.nodes.bullet_list),
           },
           {
             name: "ordered_list",
-            active: currentNode.type === mySchema.nodes.ordered_list,
+            active: isInsideList(mySchema.nodes.ordered_list),
           },
         ];
 
@@ -200,7 +225,11 @@ function MyEditor({
         isFocused ? "border-primary ring-2 ring-primary/20" : "border-border"
       }`}
     >
-      <MyEditorToolbar viewRef={viewRef} mySchema={mySchema} />
+      <MyEditorToolbar
+        viewRef={viewRef}
+        mySchema={mySchema}
+        isFocused={isFocused}
+      />
 
       <div ref={editorRef} spellCheck={false} />
     </div>

@@ -2,23 +2,7 @@ import React from "react";
 import { EditorView } from "prosemirror-view";
 import { toggleMark, setBlockType, wrapIn, lift } from "prosemirror-commands";
 import { undo, redo } from "prosemirror-history";
-import {
-  Bold,
-  Italic,
-  Code,
-  Undo2,
-  Redo2,
-  Heading1,
-  Heading2,
-  Underline,
-  Strikethrough,
-  List,
-  ListOrdered,
-  Heading3,
-  CodeXml,
-  Quote,
-  Minus,
-} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { wrapInList } from "prosemirror-schema-list";
 import EditorLinkPopover from "./EditorLinkPopover";
@@ -43,9 +27,14 @@ import {
 interface TestingToolbarProps {
   viewRef: React.MutableRefObject<EditorView | null>;
   mySchema: any;
+  isFocused: boolean;
 }
 
-export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
+export function MyEditorToolbar({
+  viewRef,
+  mySchema,
+  isFocused,
+}: TestingToolbarProps) {
   const toggleBold = () => {
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.strong)(
@@ -152,13 +141,13 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
 
       let result: boolean;
       if (node.type === headingNode && node.attrs.level === level) {
-        // If already a heading of the same level, toggle to paragraph
+ 
         result = setBlockType(paragraphNode)(
           viewRef.current.state,
           viewRef.current.dispatch
         );
       } else {
-        // Otherwise, set to heading with the specified level
+
         result = setBlockType(headingNode, { level })(
           viewRef.current.state,
           viewRef.current.dispatch
@@ -192,8 +181,30 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
   };
   const toggleNumberedList = () => {
     if (viewRef.current) {
-      const command = wrapInList(mySchema.nodes.ordered_list);
-      const result = command(viewRef.current.state, viewRef.current.dispatch);
+      const { $head } = viewRef.current.state.selection;
+
+    
+      let inOrderedList = false;
+      for (let d = $head.depth; d > 0; d--) {
+        if ($head.node(d).type === mySchema.nodes.ordered_list) {
+          inOrderedList = true;
+          break;
+        }
+      }
+
+      let result: boolean;
+      if (inOrderedList) {
+     
+        const { liftListItem } = require("prosemirror-schema-list");
+        result = liftListItem(mySchema.nodes.list_item)(
+          viewRef.current.state,
+          viewRef.current.dispatch
+        );
+      } else {
+   
+        const command = wrapInList(mySchema.nodes.ordered_list);
+        result = command(viewRef.current.state, viewRef.current.dispatch);
+      }
 
       if (result) {
         viewRef.current.focus();
@@ -204,8 +215,30 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
   };
   const toggleBulletedList = () => {
     if (viewRef.current) {
-      const command = wrapInList(mySchema.nodes.bullet_list);
-      const result = command(viewRef.current.state, viewRef.current.dispatch);
+      const { $head } = viewRef.current.state.selection;
+
+      // Check if we're already in a bullet list
+      let inBulletList = false;
+      for (let d = $head.depth; d > 0; d--) {
+        if ($head.node(d).type === mySchema.nodes.bullet_list) {
+          inBulletList = true;
+          break;
+        }
+      }
+
+      let result: boolean;
+      if (inBulletList) {
+        // If already in a bullet list, lift out of it
+        const { liftListItem } = require("prosemirror-schema-list");
+        result = liftListItem(mySchema.nodes.list_item)(
+          viewRef.current.state,
+          viewRef.current.dispatch
+        );
+      } else {
+        // Otherwise, wrap in bullet list
+        const command = wrapInList(mySchema.nodes.bullet_list);
+        result = command(viewRef.current.state, viewRef.current.dispatch);
+      }
 
       if (result) {
         viewRef.current.focus();
@@ -263,7 +296,11 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
   };
 
   return (
-    <div className="border-b border-b-border   rounded-none px-3 py-2 bg-background">
+    <div
+      className={`border-b   rounded-none px-3 py-2 bg-background ${
+        isFocused ? "border-b-primary " : "border-b-border "
+      }`}
+    >
       <div className="flex flex-wrap gap-2">
         <div className="flex gap-1 mr-4">
           <Button
@@ -309,7 +346,6 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
           >
             <ItalicsSolid size={"16"} />
           </Button>
-       
 
           <Button
             size={"icon-sm"}
@@ -331,12 +367,8 @@ export function MyEditorToolbar({ viewRef, mySchema }: TestingToolbarProps) {
           >
             <StrikeThroughSolid size={"16"} />
           </Button>
-          <EditorLinkPopover
-            viewRef={viewRef}
-            mySchema={mySchema}
-            currentHref={""}
-          />
-             <Button
+          <EditorLinkPopover viewRef={viewRef} mySchema={mySchema} />
+          <Button
             size={"icon-sm"}
             variant={"ghost"}
             type="button"
