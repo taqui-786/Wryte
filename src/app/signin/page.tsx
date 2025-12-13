@@ -26,12 +26,7 @@ function page() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      const result = await signIn();
-
-      if (result?.data) {
-        
-        router.push("/write");
-      }
+      await signIn();
     } catch (error) {
       console.error("Sign in error:", error);
     } finally {
@@ -43,6 +38,7 @@ function page() {
       setIsLoading(true);
       await signOut();
       setSession(false);
+      router.push("/");
     } catch (error) {
       console.error("sign out  error:", error);
     } finally {
@@ -52,7 +48,7 @@ function page() {
   return (
     <main className="h-dvh bg-background w-full flex items-center justify-center relative ">
       <StripedPattern className="[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]" />
-      <div className="p-2 ">
+      <div className="p-2 z-50">
         <div className="px-14 py-8">
           <span className="text-5xl font-funnel font-semibold text-primary dark:text-primary">
             Wryte.

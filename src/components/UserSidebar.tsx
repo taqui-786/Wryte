@@ -110,10 +110,11 @@ function UserSidebar() {
                         ) : (
                           <>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90">
+                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90" >
                                 <Link
                                   href={"/write"}
                                   className="flex items-center gap-2"
+                                  
                                 >
                                   <PlusIcon size="16" className="mr-1 " />
                                   <span className="line-clamp-1 leading-tight">

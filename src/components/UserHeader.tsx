@@ -1,5 +1,5 @@
 "use client";
-import { authClient } from "@/lib/authClient";
+import { authClient, signOut } from "@/lib/authClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import { SidebarTrigger } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
 import { useEffect, useState } from "react";
 import { getServerUserSession } from "@/lib/serverAction";
+import { useRouter } from "next/navigation";
 interface userType {
   id: string;
   createdAt: Date;
@@ -27,6 +28,8 @@ interface userType {
 function UserHeader() {
   const [user, setUser] = useState<userType | null>(null);
   const [isPending, setIsPending] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const getUser = async () => {
@@ -39,7 +42,18 @@ function UserHeader() {
     };
     getUser();
   }, []);
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      await signOut();
 
+      router.push("/");
+    } catch (error) {
+      console.error("sign out  error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <header className="w-full p-2 flex border-b justify-between items-center">
       <SidebarTrigger />
@@ -73,11 +87,8 @@ function UserHeader() {
             <DropdownMenuItem asChild>
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => authClient.signOut()}
-            >
-              Logout
+            <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={isLoading}>
+              {isLoading ? "Logging out..." : "Logout"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
