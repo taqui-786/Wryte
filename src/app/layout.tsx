@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Montserrat, Fira_Code } from "next/font/google";
+
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner"
-const montserrat = Montserrat({
-  variable: "--font-sans",
-  subsets: ["latin"],
-});
+import { DM_Sans } from "next/font/google";
 
-const firaCode = Fira_Code({
-  variable: "--font-mono",
-  subsets: ["latin"],
-});
+const dmSans = DM_Sans({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   title: "Wryte",
@@ -25,10 +19,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={dmSans.variable} >
      
       <body
-        className={`${montserrat.variable} ${firaCode.variable} antialiased`}
+        className={` antialiased`}
       >
         {children}
         <Toaster richColors={true} />

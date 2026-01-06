@@ -6,7 +6,13 @@ import { Bold, Code, Italic, Strikethrough, Underline } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import EditorLinkPopover from "./EditorLinkPopover";
 import { toolMarkInactive } from "./helper";
-import { BoldSolid, CodeSolid, ItalicsSolid, StrikeThroughSolid, UnderlineSolid } from "./editorIcons";
+import {
+  BoldSolid,
+  CodeSolid,
+  ItalicsSolid,
+  StrikeThroughSolid,
+  UnderlineSolid,
+} from "./editorIcons";
 
 class SelectionSizeTooltip {
   tooltip: HTMLDivElement;
@@ -249,15 +255,17 @@ class SelectionSizeTooltip {
         <EditorLinkPopover
           viewRef={{ current: this.view } as any}
           mySchema={this.view.state.schema}
-        
         />
       </div>
     );
   }
 
   destroy() {
-    this.root.unmount();
-    this.tooltip.remove();
+    // Defer unmount to avoid race condition with React rendering
+    setTimeout(() => {
+      this.root.unmount();
+      this.tooltip.remove();
+    }, 0);
   }
 }
 

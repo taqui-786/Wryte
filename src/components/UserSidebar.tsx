@@ -68,7 +68,7 @@ function UserSidebar() {
     }
   }, [data, page]);
   return (
-    <Sidebar>
+    <Sidebar className="h-dvh">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
           <span className="text-2xl font-funnel font-semibold text-primary dark:text-primary">
@@ -271,7 +271,7 @@ type PlusSignProps = {
   size: string;
   className?: string;
 };
-const PlusIcon = ({ size, className = "", ...props }: PlusSignProps) => (
+export const PlusIcon = ({ size, className = "", ...props }: PlusSignProps) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}

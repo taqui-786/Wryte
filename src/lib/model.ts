@@ -50,6 +50,22 @@ Current Node Type: ${node}
 CORE OBJECTIVE:
 Generate natural, contextually relevant text continuations that seamlessly extend the writer's thought.
 
+USER WRITING STYLE ANALYSIS:
+CRITICAL: You MUST analyze the provided context to learn and replicate the user's unique writing characteristics:
+1. TONE: Identify if the writing is formal, casual, professional, friendly, technical, creative, etc.
+2. VOCABULARY LEVEL: Match the complexity of words used (simple/conversational, intermediate, advanced/technical)
+3. SENTENCE STRUCTURE: Mirror their sentence length patterns (short and punchy vs. long and flowing)
+4. WRITING PATTERNS: Detect their preferred phrases, transitional words, and expression style
+5. FORMATTING PREFERENCES: Note how they use markdown, emphasis, lists, and structure
+
+ENFORCE STYLE MATCHING:
+- Your completion MUST sound like it was written by the same person
+- Match their vocabulary sophistication level exactly
+- Replicate their sentence rhythm and flow
+- Use similar transitional phrases and connectors they prefer
+- Maintain their level of formality/informality consistently
+- If they write simply, keep it simple. If they write elaborately, match that complexity.
+
 MARKDOWN_FORMATTING_RULES:
 ${MARKDOWN_FORMATTING_RULES}
 
@@ -58,19 +74,19 @@ ${MARKDOWN_FORMATTING_RULES}
 INTELLIGENT WORD COMPLETION DETECTION:
 
 You are given two critical parameters:
-1. **lastWord**: The last word/fragment the user typed (e.g., "creat", "element", "have")
-2. **isIncompleteWord**: Boolean flag indicating if this word looks incomplete
+1. lastWord: The last word/fragment the user typed (e.g., "creat", "element", "have")
+2. isIncompleteWord: Boolean flag indicating if this word looks incomplete
 
 COMPLETION STRATEGY:
 
-A) **INCOMPLETE WORD COMPLETION** (isIncompleteWord = true):
+A) INCOMPLETE WORD COMPLETION (isIncompleteWord = true):
    → Complete the word WITHOUT leading space
    → Examples:
      • lastWord: "creat" → "ed a beautiful design" (complete "created")
      • lastWord: "writ" → "ing and editing features" (complete "writing")
      • lastWord: "tes" → "ting the application thoroughly" (complete "testing")
 
-B) **NEW PHRASE CONTINUATION** (isIncompleteWord = false):
+B) NEW PHRASE CONTINUATION (isIncompleteWord = false):
    → Follow the standard spacing rules below
 
 STEP-BY-STEP SPACING LOGIC (MUST FOLLOW EXACTLY):
@@ -95,19 +111,19 @@ WHY THIS MATTERS: Correct spacing makes autocomplete feel intelligent and seamle
 WRONG spacing makes it feel broken and annoying to users.
 
 INTELLIGENT COMPLETION RULES:
-1. **Length**: 5-15 words (adjust based on context - shorter for headings, longer for paragraphs)
-2. **Coherence**: Complete the current thought naturally
-3. **Style Matching**: Mirror the tone, formality, and writing style of the input
-4. **Formatting**: Use markdown strategically to emphasize key concepts
-5. **Grammar**: Ensure perfect grammar and sentence structure
-6. **Predictability**: Anticipate the writer's intention based on context
-7. **No artifacts**: NO quotes around output, NO ellipses, NO starting punctuation (unless grammatically required)
+1. Length: 3-15 words (adjust based on context - shorter for headings, longer for paragraphs)
+2. Coherence: Complete the current thought naturally
+3. Style Matching: Mirror the tone, formality, and writing style of the input
+4. Formatting: Use markdown strategically to emphasize key concepts
+5. Grammar: Ensure perfect grammar and sentence structure
+6. Predictability: Anticipate the writer's intention based on context
+7. No artifacts: NO quotes, No commas around output, NO ellipses, NO starting punctuation (unless grammatically required)
 
 NODE-SPECIFIC RULES:
-- **Headings** (# ## ###): Keep concise (3-8 words), action-oriented, descriptive
-- **Paragraphs**: Natural flow, complete thoughts, use formatting for emphasis
-- **Lists**: Parallel structure, consistent tone, concise items
-- **Code blocks**: Technical accuracy, proper syntax, clear variable names
+- Headings (# ## ###): Keep concise (3-8 words), action-oriented, descriptive
+- Paragraphs: Natural flow, complete thoughts, use formatting for emphasis
+- Lists: Parallel structure, consistent tone, concise items
+- Code blocks: Technical accuracy, proper syntax, clear variable names
 
 CONTEXT AWARENESS:
 - Analyze the recent sentences to understand the topic and direction
@@ -131,7 +147,7 @@ Generate intelligent completion:`;
 
   try {
     const response = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "groq/compound-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -145,7 +161,6 @@ Generate intelligent completion:`;
     const contextEndsWithSpace = /\s$/.test(context);
 
     if (contextEndsWithSpace) {
-
       completion = completion.replace(/^\s+/, "");
     } else {
       if (endWithSpace) {

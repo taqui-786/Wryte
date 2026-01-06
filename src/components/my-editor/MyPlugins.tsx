@@ -27,6 +27,7 @@ export function placeholderPlugin(placeholderText: string) {
     },
   });
 }
+
 export function autocompletePlugin(schema: any) {
   let decorationSet: DecorationSet | null = null;
   let isAutocompleteActive = false;
@@ -183,13 +184,6 @@ export function autocompletePlugin(schema: any) {
                   endWithSpace: needsSpaceSeparation,
                   lastWord: lastWord,
                   isIncompleteWord: isIncompleteWord,
-                });
-                console.log({
-                  completion,
-                  lastWord,
-                  isIncompleteWord,
-                  needsSpaceSeparation,
-                  contextEndsWithSpace: endsWithSpace(textBefore),
                 });
 
                 currentSuggestion = completion;

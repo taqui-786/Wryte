@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <main className="min-h-dvh relative">
+    <main className="h-dvh relative">
       <Provider>
         <SidebarProvider>
           <UserSidebar />

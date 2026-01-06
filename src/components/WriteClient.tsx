@@ -10,8 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import WriteClientSkeleton from "./ui/WriteClientSkeleton";
@@ -21,6 +19,10 @@ import { DeleteIcon } from "./my-editor/editorIcons";
 import { Input } from "./ui/input";
 import MyEditor from "./my-editor/MyEditor";
 import DeletePageDailog from "./DeletePageDailog";
+import AgentSidebar from "./agent/AgentSidebar";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable";
+import { ScrollArea } from "./ui/scroll-area";
+
 function WriteClient() {
   const { mutateAsync: createDoc, isPending } = useCreateDoc();
   const { mutateAsync: updateDoc, isPending: isUpdatingDoc } = useUpdateDoc();
@@ -135,89 +137,111 @@ function WriteClient() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-4">
-      <div className="p-2 flex items-center justify-between">
-        <div className="">
-          {data?.[0]?.id && docs ? (
-            <div className="flex gap-2 items-center text-muted-foreground">
-              <ClockIcon size="20" />
-              <span className="text-sm font-medium">
-                Last edited{" "}
-                {formatDistanceToNow(new Date(data?.[0]?.updatedAt))} ago
-              </span>
-            </div>
-          ) : (
-            ""
-          )}
-        </div>
-        <div className="">
-          {data?.[0]?.id && docs ? (
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                disabled={isUpdatingDoc}
-                onClick={updateDocHandler || isAutoSaving}
-                variant={"outline"}
-              >
-                {isAutoSaving ? (
-                  <>
-                    Auto Saving{" "}
-                    <LoadingSpinnerIcon size="18" className="animate-spin" />
-                  </>
-                ) : isUpdatingDoc ? (
-                  <>
-                    Saving
-                    <LoadingSpinnerIcon size="18" className="animate-spin" />
-                  </>
+    <ResizablePanelGroup orientation="horizontal" className="overflow-hidden " >
+      <ResizablePanel defaultSize={70} className="max-h-[calc(100vh-3.5rem)]">
+        <ScrollArea className="h-full">
+
+        
+        <div className="w-full flex p-4  justify-center">
+          <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
+            <div className="p-2 flex items-center justify-between">
+              <div className="">
+                {data?.[0]?.id && docs ? (
+                  <div className="flex gap-2 items-center text-muted-foreground">
+                    <ClockIcon size="20" />
+                    <span className="text-sm font-medium">
+                      Last edited{" "}
+                      {formatDistanceToNow(new Date(data?.[0]?.updatedAt))} ago
+                    </span>
+                  </div>
                 ) : (
-                  "Save Changes"
+                  ""
                 )}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size={"icon"} variant={"outline"}>
-                    <MenuIcon size={"20"} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  {/* <DropdownMenuLabel >
+              </div>
+              <div className="">
+                {data?.[0]?.id && docs ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      disabled={isUpdatingDoc}
+                      onClick={updateDocHandler || isAutoSaving}
+                      variant={"outline"}
+                    >
+                      {isAutoSaving ? (
+                        <>
+                          Auto Saving{" "}
+                          <LoadingSpinnerIcon
+                            size="18"
+                            className="animate-spin"
+                          />
+                        </>
+                      ) : isUpdatingDoc ? (
+                        <>
+                          Saving
+                          <LoadingSpinnerIcon
+                            size="18"
+                            className="animate-spin"
+                          />
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size={"icon"} variant={"outline"}>
+                          <MenuIcon size={"20"} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {/* <DropdownMenuLabel >
                   
                   </DropdownMenuLabel> */}
-                  {/* <DropdownMenuSeparator /> */}
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setOpen(true)}
-                  >
-                    <DeleteIcon size={"16"} />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                        {/* <DropdownMenuSeparator /> */}
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setOpen(true)}
+                        >
+                          <DeleteIcon size={"16"} />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ) : (
+                  <Button disabled={isPending} onClick={handleCreatePost}>
+                    {isPending ? (
+                      <>
+                        Creating
+                        <LoadingSpinnerIcon
+                          size="18"
+                          className="animate-spin"
+                        />
+                      </>
+                    ) : (
+                      "Create Page"
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
-          ) : (
-            <Button disabled={isPending} onClick={handleCreatePost}>
-              {isPending ? (
-                <>
-                  Creating
-                  <LoadingSpinnerIcon size="18" className="animate-spin" />
-                </>
-              ) : (
-                "Create Page"
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
-      <Input
-        type="text"
-        placeholder="Write a heading of your post..."
-        className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
-        value={heading}
-        onChange={handleHeadingChange}
-      />
-      {/* </div> */}
-      <MyEditor onChange={handleChange} value={value || ""} />
-      <DeletePageDailog open={open} setOpen={setOpen} />
-    </div>
+            <Input
+              type="text"
+              placeholder="Write a heading of your post..."
+              className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
+              value={heading}
+              onChange={handleHeadingChange}
+            />
+            {/* </div> */}
+            <MyEditor onChange={handleChange} value={value || ""} />
+            <DeletePageDailog open={open} setOpen={setOpen} />
+          </div>
+        </div></ScrollArea>
+      </ResizablePanel>
+      <ResizableHandle withHandle  />
+      <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-3.5rem)]">
+        <AgentSidebar />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
 
