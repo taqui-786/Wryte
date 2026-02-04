@@ -116,33 +116,42 @@ function MessageBubble({
             );
           }
 
-          // 2️⃣ Tool call - Show "Calling weather tool"
+          // Tool status display - handles all tool-related parts
           if (
             part.type === "tool-get_weather_tool" ||
-            part.type === "data-tool-reasoning" ||
-            part.type === "data-tool-output"
+            part.type === "data-tool-reasoning" || part.type === "data-tool-output"
+            
           ) {
-            const isReady =
-              part.type === "data-tool-reasoning" ||
-              part.type === "data-tool-output" ||
-              false;
-            const toolReasoningStatus =
-              part.type === "data-tool-reasoning"
-                ? part.data?.status
-                : undefined;
-            const toolOutputStatus =
-              part.type === "data-tool-output" ? part.data?.status : undefined;
-            const isComplete = isReady && toolOutputStatus === "complete";
-            const toolText =
-              part.type === "data-tool-reasoning" ? part.data?.text : "";
+            // Determine which status to show and what text to display
+            let statusMessage = "";
+            let statusBadge = "";
+            let isComplete = false;
+            let toolText = "";
+
+            if (part.type === "tool-get_weather_tool") {
+              statusMessage = "Running weather tool";
+              statusBadge = "calling";
+            } else if (part.type === "data-tool-reasoning") {
+              const reasoningStatus = part.data?.status;
+              statusBadge = reasoningStatus || "processing";
+              toolText = part.data?.text || "";
+
+              if (reasoningStatus === "streaming") {
+                statusMessage = "Processing Weather Data";
+              } else if (reasoningStatus === "complete") {
+                statusMessage = "Processing Complete";
+                isComplete = true;
+              } 
+            } 
+
             return (
               <div
                 key={i}
                 className={cn(
                   "rounded-md border px-3 py-2 text-sm my-2",
                   isComplete
-                    ? "border-blue-500/50 bg-blue-500/10"
-                    : "border-border bg-muted/50",
+                    ? "border-green-500/50 bg-green-500/10"
+                    : "border-blue-500/50 bg-blue-500/10",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -154,42 +163,19 @@ function MessageBubble({
                         !isComplete && "animate-pulse",
                       )}
                     />
-                    {isReady === false ? (
-                      <span className="font-medium">Running weather tool</span>
-                    ) : (
-                      ""
-                    )}
-                    {toolReasoningStatus === "streaming" ? (
-                      <span className="font-medium">
-                        Processing Weather Data
-                      </span>
-                    ) : (
-                      ""
-                    )}
-                    {toolOutputStatus === "streaming" ? (
-                      <span className="font-medium">
-                        Generating Weather Report
-                      </span>
-                    ) : (
-                      ""
-                    )}
-                    {toolOutputStatus === "completed" ? (
-                      <span className="font-medium">Completed Weather Job</span>
-                    ) : (
-                      ""
-                    )}
+                    <span className="font-medium">{statusMessage}</span>
                   </div>
                   <span
                     className={cn(
                       "text-xs capitalize",
-                      isComplete ? "text-blue-500" : "text-muted-foreground",
+                      isComplete ? "text-green-500" : "text-blue-500",
                     )}
                   >
-                    {toolReasoningStatus}
+                    {statusBadge}
                   </span>
                 </div>
                 {toolText && (
-                  <div className="text-xs text-muted-foreground mt-2 italic line-clamp-2">
+                  <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
                     <Markdown className="text-sm">{toolText}</Markdown>
                   </div>
                 )}
@@ -284,6 +270,12 @@ function AgentSidebar() {
         // Check if any part is still streaming/processing
         return message.parts.some((part) => {
           if (part.type === "reasoning") {
+            return false;
+          } else if (part.type === "data-tool-output") {
+            return false;
+          } else if (part.type === "data-tool-reasoning") {
+            return false;
+          } else if (part.type === "text") {
             return false;
           }
 
