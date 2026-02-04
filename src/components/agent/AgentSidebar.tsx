@@ -117,11 +117,7 @@ function MessageBubble({
           }
 
           // Tool status display - handles all tool-related parts
-          if (
-            part.type === "tool-get_weather_tool" ||
-            part.type === "data-tool-reasoning" || part.type === "data-tool-output"
-            
-          ) {
+          if ((part.type === "data-tool-reasoning" || part.data.status !== 'complete') || (part.type === "data-tool-output" && part.data.status === 'complete')) {
             // Determine which status to show and what text to display
             let statusMessage = "";
             let statusBadge = "";
@@ -140,12 +136,15 @@ function MessageBubble({
                 statusMessage = "Processing Weather Data";
               } else if (reasoningStatus === "complete") {
                 statusMessage = "Processing Complete";
-                isComplete = true;
-              } 
-              if(part.type === "data-tool-output" && part.data?.status === "complete"){
-                statusMessage = "Weather Job Completed";
               }
-            } 
+            }
+            if (
+              part.type === "data-tool-output" &&
+              part.data?.status === "complete"
+            ) {
+              statusMessage = "Weather Job Completed";
+              isComplete = true;
+            }
 
             return (
               <div

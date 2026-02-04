@@ -4,7 +4,54 @@ import React, { useState, useRef, useEffect } from "react";
 import { Send, Bot, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
-
+import { cn } from "@/lib/utils";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ToolsIcon } from "@hugeicons/core-free-icons";
+import { Markdown } from "@/components/ui/markdown";
+const dummyData = [
+  {
+    type: "step-start",
+  },
+  {
+    type: "reasoning",
+    text: 'The user asked: "what is the weather of london". According to the instructions, we must use get_weather_tool. Let\'s call it.',
+    state: "done",
+  },
+  {
+    type: "tool-get_weather_tool",
+    toolCallId: "fc_455aff5e-5caf-4aa6-b075-0888c04f81a4",
+    state: "output-available",
+    input: {
+      location: "London",
+    },
+    output:
+      "**London Weather Report – 2026‑02‑04 15:30**\n\n**Location**  \nLondon, United Kingdom  \n\n**Current Conditions**  \n- Temperature: 9.6 °C  \n- Wind: 16 km/h from 82° (East)  \n\n**Short Summary**  \nThe weather in London feels cool, with mild breezes coming from the east. Temperatures hover around 9.6 °C and wind speeds are moderate at 16 km/h.",
+  },
+  {
+    type: "data-tool-reasoning",
+    id: "t7orgyKn2cGfmOuIxN3ce",
+    data: {
+      text: 'We have to produce a weather report. The format:\n\n- Title\n- Location\n- Current Conditions\n- Short summary at the end\n\nUse only data provided. Title: maybe "Weather Report" or "London Weather Update" or something. The data: location: London, United Kingdom. Temperature 9.6°C. Wind Speed 16 km/h, Wind Direction 82 degrees. Last Updated: 2026-02-04T15:30. The wind direction in degrees: 82°, which is roughly East by North? Actually 82° is slightly east of due east. So we can note "E" or "ENE" direction. 90° is due east. 82° is slightly north of east, maybe ENE (east-northeast). We might mention "East (82°)" or "E (82°)". The wind direction 82°, the wind speed 16 km/h. Temperature 9.6°C. We can mention "Current Conditions: Temperature 9.6°C, Wind 16 km/h from 82° (East)".\n\nAlso mention the last updated time. Format: Title, Location, Current Conditions, Short summary at the end.\n\nWe might add the last updated. Title: "London Weather Report - 2026-02-04". Then Location: "London, United Kingdom". Current Conditions: Temperature 9.6°C; Wind 16 km/h from 82° (East). Maybe "Wind direction: 82° (East)". Then summary: "The weather in London is cool with mild breezes. Temperatures are around 9.6°C and winds are moderate at 16 km/h from the east."\n\nWe need to keep simple, readable, well structured. Use bullet points? The instructions: "Format: - Title - Location - Current Conditions - Short summary at the end". So we might just list these lines.\n\nLet\'s produce:\n\nTitle: London Weather Report – 2026-02-04 15:30 UTC\n\nLocation: London, United Kingdom\n\nCurrent Conditions: Temperature: 9.6 °C; Wind: 16 km/h from 82° (East).\n\nShort summary: The city feels cool with light breezes from the east. Temperatures around 9.6°C and wind speeds of 16 km/h.\n\nWe should ensure we only use provided data. The last updated: 2026-02-04T15:30. Might mention "Updated: 2026-02-04 15:30". The time is in ISO 8601. Use same format.\n\nOk. Let\'s produce.',
+      status: "complete",
+    },
+  },
+  {
+    type: "data-tool-output",
+    id: "t7orgyKn2cGfmOuIxN3ce",
+    data: {
+      text: "**London Weather Report – 2026‑02‑04 15:30**\n\n**Location**  \nLondon, United Kingdom  \n\n**Current Conditions**  \n- Temperature: 9.6 °C  \n- Wind: 16 km/h from 82° (East)  \n\n**Short Summary**  \nThe weather in London feels cool, with mild breezes coming from the east. Temperatures hover around 9.6 °C and wind speeds are moderate at 16 km/h.",
+      status: "complete",
+    },
+  },
+  {
+    type: "step-start",
+  },
+  {
+    type: "text",
+    text: "**London Weather Report – 2026‑02‑04 15:30**\n\n| Item | Value |\n|------|-------|\n| **Location** | London, United Kingdom |\n| **Temperature** | 9.6 °C |\n| **Wind** | 16 km/h from 82° (East) |\n\n**Short Summary**  \nThe weather in London feels cool, with mild breezes coming from the east. Temperatures hover around 9.6 °C and wind speeds are moderate at 16 km/h.",
+    state: "done",
+  },
+];
 export default function ChatBot() {
   const {
     messages: aiMessages,
@@ -55,177 +102,80 @@ export default function ChatBot() {
   console.log({ aiMessages });
 
   return (
-    <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[500px]">
-      {/* Header */}
-      <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600">
-            <Bot size={24} />
-          </div>
-          <div>
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-              Wryte Assistant
-            </h3>
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isLoading
-                    ? "bg-amber-500 animate-pulse"
-                    : "bg-green-500 animate-pulse"
-                }`}
-              />
-              <span className="text-xs text-zinc-500">
-                {isLoading ? "Thinking..." : "Online"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <Sparkles size={20} className="text-zinc-400" />
-      </div>
+    <div className="">
+      {dummyData.map((item, index) => {
+        let statusMessage = "";
+        let statusBadge = "";
+        let isComplete = false;
+        let toolText = "";
 
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800"
-      >
-        <AnimatePresence initial={false}>
-          {aiMessages.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-10"
-            >
-              <div className="bg-zinc-100 dark:bg-zinc-800 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Bot size={24} className="text-zinc-400" />
-              </div>
-              <p className="text-sm text-zinc-500">How can I help you today?</p>
-            </motion.div>
-          )}
-
-          {aiMessages.map((msg) => {
-            const content = getMessageContent(msg);
-            if (!content && msg.role !== "user") return null;
-
-            // Parse thinking and final content for assistant messages
-            let thinkingContent = "";
-            let finalContent = "";
-
-            if (msg.role === "assistant") {
-              // Split content by JSON block
-              const jsonMatch = content.match(/\{[\s\S]*\}$/);
-              if (jsonMatch) {
-                thinkingContent = content.substring(0, jsonMatch.index).trim();
-                try {
-                  const jsonData = JSON.parse(jsonMatch[0]);
-                  finalContent = JSON.stringify(jsonData, null, 2);
-                } catch {
-                  finalContent = jsonMatch[0];
-                }
-              } else {
-                // No JSON found, treat entire content as final
-                finalContent = content;
-              }
-            }
-
-            return (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className={`flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
+        if (item.type === "data-tool-reasoning") {
+          const reasoningStatus = item.data?.status;
+          statusBadge = reasoningStatus || "processing";
+          toolText = item.data?.text || "";
+          if (reasoningStatus === "processing") {
+            statusMessage = "Running Weather Tool";
+          } else if (reasoningStatus === "streaming") {
+            statusMessage = "Processing Weather Data";
+          } else if (reasoningStatus === "complete") {
+            statusMessage = "Processing Complete";
+          }
+       
+        }
+           if (
+            item.type === "data-tool-output" &&
+            item.data?.status === "complete"
+          ) {
+            statusMessage = "Weather Job Completed";
+            isComplete = true;
+          }
+        return (
+          <>
+            {(item.type === "data-tool-reasoning" && item.data.status !== 'complete') || (item.type === "data-tool-output" && item.data.status === 'complete') ? (
+              <div
+                key={index}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-sm my-2",
+                  isComplete
+                    ? "border-green-500/50 bg-green-500/10"
+                    : "border-blue-500/50 bg-blue-500/10",
+                )}
               >
-                {msg.role === "user" ? (
-                  <div className="max-w-[85%] p-3 rounded-2xl text-sm bg-blue-600 text-white rounded-tr-none">
-                    {content}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <HugeiconsIcon
+                      icon={ToolsIcon}
+                      className={cn(
+                        "size-[16px]",
+                        !isComplete && "animate-pulse",
+                      )}
+                    />
+                    <span className="font-medium">{statusMessage}</span>
                   </div>
-                ) : (
-                  <div className="max-w-[85%] space-y-2">
-                    {/* Thinking Section */}
-                    {thinkingContent && (
-                      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 text-xs">
-                        <div className="flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-400">
-                          <Sparkles size={14} className="animate-pulse" />
-                          <span className="font-semibold">
-                            Thinking Process
-                          </span>
-                        </div>
-                        <div className="text-amber-800 dark:text-amber-300 space-y-1 font-mono text-[10px] leading-relaxed opacity-80">
-                          {thinkingContent.split("\n\n").map((section, idx) => {
-                            const headerMatch = section.match(/^\*\*(.+?)\*\*/);
-                            if (headerMatch) {
-                              return (
-                                <div key={idx} className="mb-1">
-                                  <div className="font-bold text-amber-900 dark:text-amber-200">
-                                    {headerMatch[1]}
-                                  </div>
-                                  <div className="mt-0.5 pl-2">
-                                    {section.replace(/^\*\*.+?\*\*\n/, "")}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return <div key={idx}>{section}</div>;
-                          })}
-                        </div>
-                      </div>
+                  <span
+                    className={cn(
+                      "text-xs capitalize",
+                      isComplete ? "text-green-500" : "text-blue-500",
                     )}
-
-                    {/* Final Content */}
-                    {finalContent && (
-                      <div className="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-2xl rounded-tl-none border border-zinc-200 dark:border-zinc-700 shadow-sm p-3 text-sm">
-                        <pre className="whitespace-pre-wrap font-sans overflow-x-auto">
-                          {finalContent}
-                        </pre>
-                      </div>
-                    )}
+                  >
+                    {statusBadge}
+                  </span>
+                </div>
+                {toolText && (
+                  <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
+                    <Markdown className="text-sm">{toolText}</Markdown>
                   </div>
                 )}
-              </motion.div>
-            );
-          })}
-
-          {/* {isLoading && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex justify-start"
-            >
-              <div className="bg-zinc-100 dark:bg-zinc-800 p-3 rounded-2xl rounded-tl-none border border-zinc-200 dark:border-zinc-700 flex gap-1">
-                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" />
               </div>
-            </motion.div>
-          )} */}
-        </AnimatePresence>
-      </div>
-
-      {/* Input */}
-      <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <form onSubmit={handleSend} className="relative flex items-center">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={isLoading}
-            placeholder={isLoading ? "AI is thinking..." : "Type a message..."}
-            className="w-full bg-zinc-100 dark:bg-zinc-800 border-none rounded-xl py-3 pl-4 pr-12 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all dark:text-zinc-100 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={!inputValue.trim() || isLoading}
-            className="absolute right-2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20"
-          >
-            <Send size={18} />
-          </button>
-        </form>
-        <p className="text-[10px] text-center text-zinc-400 mt-2 italic">
-          Powered by Wryte & TanStack AI
-        </p>
-      </div>
+            ) : (
+              ""
+            )}
+            <div key={index}>
+              <p>{item.text}</p>
+            </div>
+          </>
+        );
+      })}
     </div>
   );
 }
