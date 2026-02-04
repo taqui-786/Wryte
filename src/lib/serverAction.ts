@@ -43,6 +43,9 @@ export const getUserDocs = async () => {
 };
 export const getDocsById = async (id: string) => {
   const session = await getServerUserSession();
+  if (!session || !id) {
+    return [];
+  }
   const response = await db
     .select({
       id: docs.id,
@@ -95,3 +98,33 @@ export const deleteUserDocs = async (docId: string) => {
     .returning();
   return response[0];
 };
+export async function getCoordinates(location: string) {
+  const res = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+      location
+    )}&count=1`
+  );
+
+  const data = await res.json();
+
+  if (!data.results || data.results.length === 0) {
+    throw new Error("Location not found");
+  }
+
+  const place = data.results[0];
+
+  return {
+    latitude: place.latitude,
+    longitude: place.longitude,
+    name: place.name,
+    country: place.country,
+  };
+}
+export async function getWeather(lat: number, lon: number) {
+  const res = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+  );
+
+  const data = await res.json();
+  return data.current_weather;
+}

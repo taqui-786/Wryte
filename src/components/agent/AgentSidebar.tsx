@@ -1,142 +1,208 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { PlusIcon } from "../UserSidebar";
 import { HistoryIcon, MenuIcon } from "../customIcons";
-// import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { useChat } from "@ai-sdk/react";
-import { ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Types for messages
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  thinking?: string;
-  thinkingDuration?: number;
-  thinkingStartTime?: number;
-  timestamp: Date;
-}
-
-// Thinking component that shows collapsible reasoning
-function ThinkingMessage({
-  thinking,
-  duration,
-  isStreaming,
-  startTime,
-}: {
-  thinking: string;
-  duration?: number;
-  isStreaming?: boolean;
-  startTime?: number;
-}) {
-  const [isExpanded, setIsExpanded] = useState(true); // Start expanded by default
-  const [realtimeDuration, setRealtimeDuration] = useState(0);
-  const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
-
-  // Real-time duration tracking
-  useEffect(() => {
-    if (isStreaming) {
-      const interval = setInterval(() => {
-        const newSec = realtimeDuration + 1;
-        setRealtimeDuration(newSec);
-      }, 100); // Update every 100ms for smooth counting
-
-      return () => clearInterval(interval);
-    } else if (duration !== undefined) {
-      // setRealtimeDuration(duration);
-    }
-  }, [isStreaming]);
-
-  // Auto-collapse after 1.5 seconds when reasoning is complete
-  useEffect(() => {
-    if (!isStreaming && !hasAutoCollapsed) {
-      const timer = setTimeout(() => {
-        setIsExpanded(false);
-        setHasAutoCollapsed(true);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isStreaming, hasAutoCollapsed]);
-
-  // Auto-expand when streaming
-  const shouldShowContent = isStreaming || isExpanded;
-
-  return (
-    <div className="mb-2">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        disabled={isStreaming}
-      >
-        <Brain className="w-4 h-4" />
-        <span className={cn({ "animate-pulse": isStreaming })}>
-          {isStreaming
-            ? `Thinking ${realtimeDuration} seconds`
-            : `Thought for ${realtimeDuration} seconds`}
-        </span>
-        {!isStreaming && (
-          <>
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </>
-        )}
-      </button>
-      {shouldShowContent && thinking && (
-        <div className="mt-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground space-y-2 border border-border/50">
-          {thinking.split("\n").map((line, idx) => (
-            <p key={idx}>{line}</p>
-          ))}
-          {/* Show streaming cursor during thinking */}
-          {isStreaming && (
-            <span className="inline-block w-1 h-4 ml-1 bg-muted-foreground animate-pulse" />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+import { MyUIMessage } from "@/app/api/chat/route";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "../ai-elements/reasoning";
+import { StreamingMessage } from "../ai-elements/streaming-message";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Brain01FreeIcons, ToolsIcon } from "@hugeicons/core-free-icons";
+import { Markdown } from "../ui/markdown";
 
 // Message bubble component
 function MessageBubble({
   message,
-  isStreaming,
-  isThinkingStreaming,
+  parts,
 }: {
-  message: ChatMessage;
-  isStreaming?: boolean;
-  isThinkingStreaming?: boolean;
+  message: MyUIMessage;
+  parts: any[];
 }) {
   const isUser = message.role === "user";
 
+  // Filter parts to only show relevant current state
+  const filteredParts = useMemo(() => {
+    // Check what parts exist to determine visibility
+    const hasReasoning = parts.some((p) => p.type === "reasoning");
+    const hasToolCall = parts.some((p) => p.type === "tool-get_weather_tool");
+    const hasDataToolReasoning = parts.some(
+      (p) => p.type === "data-tool-reasoning",
+    );
+    const hasDataToolOutput = parts.some((p) => p.type === "data-tool-output");
+    const hasFinalText = parts.some((p) => p.type === "text" && p.text?.trim());
+
+    // Get the latest output part specifically (for final weather report)
+    const latestOutputPart = [...parts]
+      .reverse()
+      .find((p) => p.type === "data-tool-output");
+
+    // Get latest reasoning part
+    const latestReasoningPart = [...parts]
+      .reverse()
+      .find((p) => p.type === "data-tool-reasoning");
+
+    return parts.filter((part) => {
+      // Hide step-start once we have reasoning or anything else
+      if (part.type === "step-start") {
+        return (
+          !hasReasoning &&
+          !hasToolCall &&
+          !hasDataToolReasoning &&
+          !hasDataToolOutput &&
+          !hasFinalText
+        );
+      }
+
+      // Always show reasoning (it collapses itself)
+      if (part.type === "reasoning") {
+        return true;
+      }
+
+      // Hide tool-call once we have data parts
+      if (part.type === "tool-get_weather_tool") {
+        return !hasDataToolReasoning && !hasDataToolOutput;
+      }
+
+      // Show latest reasoning part (only if output hasn't started yet)
+      if (part.type === "data-tool-reasoning") {
+        // If we have output with content, hide reasoning
+        const hasOutputWithContent = latestOutputPart?.data?.text?.trim();
+        if (hasOutputWithContent) return false;
+        return part === latestReasoningPart;
+      }
+
+      // Show latest output part
+      if (part.type === "data-tool-output") {
+        return part === latestOutputPart;
+      }
+
+      // Show text only if it has content
+      if (part.type === "text") {
+        return Boolean(part.text?.trim());
+      }
+
+      return false;
+    });
+  }, [parts]);
+
   return (
-    <div className={`mb-4 flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`mb-4 group  flex ${isUser ? "justify-end" : "justify-start"}`}
+      data-user-type={isUser}
+    >
       <div
-        className={`max-w-[85%] rounded-lg p-3 ${
+        className={` group-data-[user-type=false]:w-full w-fit max-w-[80%] rounded-lg p-3 ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-muted text-foreground"
         }`}
       >
-        {!isUser && message.thinking && (
-          <ThinkingMessage
-            thinking={message.thinking}
-            duration={message.thinkingDuration}
-            isStreaming={isThinkingStreaming}
-            startTime={message.thinkingStartTime}
-          />
-        )}
-        <div className="text-sm whitespace-pre-wrap">
-          {message.content}
-          {/* Show streaming cursor for messages being generated */}
-          {isStreaming && !isUser && (
-            <span className="inline-block w-1 h-4 ml-1 bg-foreground animate-pulse" />
-          )}
-        </div>
+        {filteredParts.map((part, i) => {
+          if (part.type === "reasoning") {
+            return (
+              <Reasoning
+                key={i}
+                className="w-full"
+                isStreaming={part?.state !== "done"}
+              >
+                <ReasoningTrigger />
+                <ReasoningContent>{part?.text}</ReasoningContent>
+              </Reasoning>
+            );
+          }
+
+          // 2️⃣ Tool call - Show "Calling weather tool"
+          if (
+            part.type === "tool-get_weather_tool" ||
+            part.type === "data-tool-reasoning" ||
+            part.type === "data-tool-output"
+          ) {
+            const  isReady = part.type === 'data-tool-reasoning' || part.type === 'data-tool-output'
+            const toolReasoningStatus = part.type === "data-tool-reasoning" ? part.data?.status : undefined;
+            const toolOutputStatus = part.type === "data-tool-output" ? part.data?.status : undefined;
+            const isComplete =
+              isReady && toolOutputStatus === "complete";
+            const toolText = part.data?.text || "";
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "rounded-md border px-3 py-2 text-sm my-2",
+                  isComplete
+                    ? "border-blue-500/50 bg-blue-500/10"
+                    : "border-border bg-muted/50",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <HugeiconsIcon
+                      icon={ToolsIcon}
+                      className={cn(
+                        "size-[16px]",
+                        !isComplete && "animate-pulse",
+                      )}
+                    />
+                    {
+                      !isReady ?
+                      <span className="font-medium">
+                      Running weather tool
+                    </span>
+                    : toolReasoningStatus === "streaming" ?
+                    <span className="font-medium">
+                      Processing Weather Data
+                    </span>
+                    : ""
+          
+                    }
+                    {
+                      toolOutputStatus === "streaming" ?
+                      <span className="font-medium">
+                      Generating Weather Report
+                    </span>
+                    : ""
+                    }
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs capitalize",
+                      isComplete ? "text-blue-500" : "text-muted-foreground",
+                    )}
+                  >
+                    {toolReasoningStatus}
+                  </span>
+                </div>
+                {toolText && (
+                  <div className="text-xs text-muted-foreground mt-2 italic line-clamp-2">
+                   <Markdown className="text-sm">{toolText}</Markdown>
+                  </div>
+                )}
+                
+              </div>
+            );
+          }
+
+
+
+          // 5️⃣ Final text - StreamingMessage with the text
+          if (part.type === "text") {
+            return (
+              <div className="whitespace-pre-wrap" key={i}>
+                <StreamingMessage
+                  markdown
+                  animate={message.role === "assistant"}
+                  text={part.text}
+                />
+              </div>
+            );
+          }
+
+          return null;
+        })}
       </div>
     </div>
   );
@@ -144,28 +210,29 @@ function MessageBubble({
 
 function AgentSidebar() {
   const [viewHistory, setViewHistory] = useState(false);
-  const { messages, sendMessage, setMessages } = useChat();
-  const [myMessages, setMyMessages] = useState<ChatMessage[]>([]);
-  const isLoading = false;
-  // const {
-  //   messages: aiMessages,
-  //   sendMessage,
-  //   isLoading,
-  // } = useChat({
-  //   connection: fetchServerSentEvents("/api/model"),
-  // });
+  const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
+    // transport: new DefaultChatTransport({
+    //   api: "/api/test",
+    // }),
+    onError: (error) => {
+      console.error("Error sending message:", error);
+    },
+  });
+  const [isThinking, setIsThinking] = useState(false);
+
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change - use a ref-based approach
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [messages]);
+    // Use requestAnimationFrame to avoid triggering during render
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages.length]); // Only depend on length, not the entire messages array
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -176,13 +243,46 @@ function AgentSidebar() {
       setInputValue("");
 
       // Send message to API - useChat will handle adding it to messages
-      sendMessage({ text });
+      setIsThinking(true);
+      sendMessage({ text, metadata: { userMessage: text } });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
-
+  // Stop thinking when assistant starts responding - only check when message count changes
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === "assistant") {
+      const hasContent = lastMessage.parts.some(
+        (part) =>
+          part.type === "reasoning" ||
+          (part.type === "text" && part.text?.trim()) ||
+          part.type === "data-tool-output" ||
+          part.type === "data-tool-reasoning",
+      );
+      if (hasContent) {
+        setIsThinking(false);
+      }
+    }
+  }, [messages.length]); // Only depend on length to avoid infinite loops
   console.log(messages);
+
+  // Memoize isLoading to prevent recalculation on every render
+  const isLoading = useMemo(
+    () =>
+      messages.some((message) => {
+        if (message.role !== "assistant") return false;
+        // Check if any part is still streaming/processing
+        return message.parts.some((part) => {
+          if (part.type === "step-start") {
+            return true;
+          }
+
+          return false;
+        });
+      }),
+    [messages.length],
+  ); // Only recalculate when message count changes
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -194,7 +294,7 @@ function AgentSidebar() {
             variant={"ghost"}
             size="icon-sm"
             onClick={() => {
-              setMyMessages([]);
+              // setMessages([]);
             }}
           >
             <PlusIcon size="20" />
@@ -222,7 +322,7 @@ function AgentSidebar() {
           {/* body part scroll area */}
           <div
             ref={scrollRef}
-            className="flex-1 min-h-0 overflow-y-auto p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
+            className="flex-1  min-h-0 overflow-y-auto p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
           >
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -230,78 +330,30 @@ function AgentSidebar() {
               </div>
             ) : (
               messages.map((message, index) => {
-                // Determine if this is the last assistant message and is currently streaming
-                const isLastMessage = index === messages.length - 1;
-                const isAssistantMessage = message.role === "assistant";
-                const isCurrentlyLoading =
-                  isLastMessage && isAssistantMessage && isLoading;
-
-                // Parse parts array efficiently in a single iteration
-                let textContent = "";
-                let reasoningText = "";
-                let thinkingStartTime: number | undefined;
-                let thinkingEndTime: number | undefined;
-
-                for (const part of message.parts) {
-                  if (part.type === "text" && part.text) {
-                    textContent = part.text;
-                  } else if (part.type === "reasoning" && part.text) {
-                    reasoningText = part.text;
-                    // Mark when reasoning starts if not already set
-                    if (!thinkingStartTime) {
-                      thinkingStartTime = Date.now();
-                    }
-                  } else if (part.type === "step-start") {
-                    console.log("render assistent message");
-
-                    thinkingStartTime = Date.now();
-                  }
-                }
-
-                // Use text content directly (no JSON parsing needed)
-                const parsedContent = textContent;
-
-                // Calculate thinking duration if we have timing info
-                if (thinkingStartTime && reasoningText) {
-                  thinkingEndTime = Date.now();
-                }
-
-                const thinkingDuration =
-                  thinkingStartTime && thinkingEndTime
-                    ? (thinkingEndTime - thinkingStartTime) / 1000
-                    : undefined;
-
-                const messageObject: ChatMessage = {
-                  id: message.id,
-                  content: parsedContent || "",
-                  role: message.role,
-                  timestamp: new Date(),
-                  thinking: reasoningText || undefined,
-                  thinkingDuration,
-                  thinkingStartTime,
-                };
-
-                // Message content is streaming when loading but NOT in thinking phase
-                const isMessageStreaming = isCurrentlyLoading;
-                const reasoningPart = message.parts.find(
-                  (part) => part.type === "reasoning"
-                );
-                const isThinkingStreaming =
-                  message.role === "assistant" &&
-                  reasoningPart &&
-                  "state" in reasoningPart &&
-                  reasoningPart.state === "streaming";
-
                 return (
                   <MessageBubble
+                    parts={message.parts}
                     key={message.id}
-                    message={messageObject}
-                    isStreaming={isMessageStreaming}
-                    isThinkingStreaming={isThinkingStreaming}
+                    message={message}
                   />
                 );
               })
             )}
+            {isLoading && (
+              <div className="mb-4 flex justify-start">
+                <div className="max-w-[85%] rounded-lg p-3 bg-muted text-foreground">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                    <HugeiconsIcon
+                      icon={Brain01FreeIcons}
+                      className="size-[18px] animate-pulse"
+                    />
+                    <span>Thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} />
             {/* Removed separate loading indicator - now shown via streaming thinking */}
           </div>
           {/* Agent - Chat box */}
@@ -355,35 +407,3 @@ function AgentSidebar() {
 }
 
 export default AgentSidebar;
-
-[
-  {
-    parts: [
-      {
-        type: "text",
-        text: "hey there",
-      },
-    ],
-    id: "DDmtyHoT0vpBOflg",
-    role: "user",
-  },
-  {
-    id: "XnZQA6vHgRQki3iQ",
-    role: "assistant",
-    parts: [
-      {
-        type: "step-start",
-      },
-      {
-        type: "reasoning",
-        text: 'We need to output a JSON object with fields "message" and "reasoning". The user says "hey there". We should respond with a friendly greeting. Need to include reasoning explaining the answer. Ensure JSON is valid, compact, no extra whitespace. So final output is JSON with message and reasoning.',
-        state: "done",
-      },
-      {
-        type: "text",
-        text: '{"reasoning":"The user greeted the assistant. The assistant should respond with a friendly greeting, and provide a brief explanation in the reasoning field.","message":"Hello! How can I help you today?"}',
-        state: "done",
-      },
-    ],
-  },
-];

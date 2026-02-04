@@ -38,6 +38,7 @@ function WriteClient() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["page", docs],
     queryFn: async () => await getDocsById(docs as string),
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
