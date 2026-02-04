@@ -142,6 +142,9 @@ function MessageBubble({
                 statusMessage = "Processing Complete";
                 isComplete = true;
               } 
+              if(part.type === "data-tool-output" && part.data?.status === "complete"){
+                statusMessage = "Weather Job Completed";
+              }
             } 
 
             return (
