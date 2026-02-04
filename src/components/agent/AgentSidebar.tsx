@@ -122,12 +122,19 @@ function MessageBubble({
             part.type === "data-tool-reasoning" ||
             part.type === "data-tool-output"
           ) {
-            const  isReady = part.type === 'data-tool-reasoning' || part.type === 'data-tool-output'
-            const toolReasoningStatus = part.type === "data-tool-reasoning" ? part.data?.status : undefined;
-            const toolOutputStatus = part.type === "data-tool-output" ? part.data?.status : undefined;
-            const isComplete =
-              isReady && toolOutputStatus === "complete";
-            const toolText = part.data?.text || "";
+            const isReady =
+              part.type === "data-tool-reasoning" ||
+              part.type === "data-tool-output" ||
+              false;
+            const toolReasoningStatus =
+              part.type === "data-tool-reasoning"
+                ? part.data?.status
+                : undefined;
+            const toolOutputStatus =
+              part.type === "data-tool-output" ? part.data?.status : undefined;
+            const isComplete = isReady && toolOutputStatus === "complete";
+            const toolText =
+              part.type === "data-tool-reasoning" ? part.data?.text : "";
             return (
               <div
                 key={i}
@@ -147,25 +154,30 @@ function MessageBubble({
                         !isComplete && "animate-pulse",
                       )}
                     />
-                    {
-                      !isReady ?
+                    {isReady === false ? (
+                      <span className="font-medium">Running weather tool</span>
+                    ) : (
+                      ""
+                    )}
+                    {toolReasoningStatus === "streaming" ? (
                       <span className="font-medium">
-                      Running weather tool
-                    </span>
-                    : toolReasoningStatus === "streaming" ?
-                    <span className="font-medium">
-                      Processing Weather Data
-                    </span>
-                    : ""
-          
-                    }
-                    {
-                      toolOutputStatus === "streaming" ?
+                        Processing Weather Data
+                      </span>
+                    ) : (
+                      ""
+                    )}
+                    {toolOutputStatus === "streaming" ? (
                       <span className="font-medium">
-                      Generating Weather Report
-                    </span>
-                    : ""
-                    }
+                        Generating Weather Report
+                      </span>
+                    ) : (
+                      ""
+                    )}
+                    {toolOutputStatus === "completed" ? (
+                      <span className="font-medium">Completed Weather Job</span>
+                    ) : (
+                      ""
+                    )}
                   </div>
                   <span
                     className={cn(
@@ -178,15 +190,12 @@ function MessageBubble({
                 </div>
                 {toolText && (
                   <div className="text-xs text-muted-foreground mt-2 italic line-clamp-2">
-                   <Markdown className="text-sm">{toolText}</Markdown>
+                    <Markdown className="text-sm">{toolText}</Markdown>
                   </div>
                 )}
-                
               </div>
             );
           }
-
-
 
           // 5️⃣ Final text - StreamingMessage with the text
           if (part.type === "text") {
@@ -274,11 +283,11 @@ function AgentSidebar() {
         if (message.role !== "assistant") return false;
         // Check if any part is still streaming/processing
         return message.parts.some((part) => {
-          if (part.type === "step-start") {
-            return true;
+          if (part.type === "reasoning") {
+            return false;
           }
 
-          return false;
+          return true;
         });
       }),
     [messages.length],
