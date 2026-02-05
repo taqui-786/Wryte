@@ -117,7 +117,12 @@ function MessageBubble({
           }
 
           // Tool status display - handles all tool-related parts
-          if ((part.type === "data-tool-reasoning" || part.data.status !== 'complete') || (part.type === "data-tool-output" && part.data.status === 'complete')) {
+          if (
+            (part.type === "data-tool-reasoning" &&
+              part?.data?.status !== "complete") ||
+            (part.type === "data-tool-output" &&
+              part.data.status === "complete")
+          ) {
             // Determine which status to show and what text to display
             let statusMessage = "";
             let statusBadge = "";
@@ -128,6 +133,7 @@ function MessageBubble({
               statusMessage = "Running weather tool";
               statusBadge = "calling";
             } else if (part.type === "data-tool-reasoning") {
+              statusMessage = "Processing weather data";
               const reasoningStatus = part.data?.status;
               statusBadge = reasoningStatus || "processing";
               toolText = part.data?.text || "";
@@ -246,45 +252,23 @@ function AgentSidebar() {
       console.error("Error sending message:", error);
     }
   };
-  // Stop thinking when assistant starts responding - only check when message count changes
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === "assistant") {
-      const hasContent = lastMessage.parts.some(
-        (part) =>
-          part.type === "reasoning" ||
-          (part.type === "text" && part.text?.trim()) ||
-          part.type === "data-tool-output" ||
-          part.type === "data-tool-reasoning",
-      );
-      if (hasContent) {
-        setIsThinking(false);
-      }
-    }
-  }, [messages.length]); // Only depend on length to avoid infinite loops
-  console.log(messages);
+
+  // console.log(messages);
 
   // Memoize isLoading to prevent recalculation on every render
   const isLoading = useMemo(
     () =>
       messages.some((message) => {
         if (message.role !== "assistant") return false;
-        // Check if any part is still streaming/processing
-        return message.parts.some((part) => {
-          if (part.type === "reasoning") {
-            return false;
-          } else if (part.type === "data-tool-output") {
-            return false;
-          } else if (part.type === "data-tool-reasoning") {
-            return false;
-          } else if (part.type === "text") {
-            return false;
-          }
+        return message.parts.some((part, index) => {
+          console.log(part.type, index);
 
-          return true;
+          if (part.type === "step-start" && index === 0) {
+            setIsThinking(false);
+          }
         });
       }),
-    [messages.length],
+    [messages],
   ); // Only recalculate when message count changes
 
   return (
@@ -342,7 +326,7 @@ function AgentSidebar() {
                 );
               })
             )}
-            {isLoading && (
+            {isThinking && (
               <div className="mb-4 flex justify-start">
                 <div className="max-w-[85%] rounded-lg p-3 bg-muted text-foreground">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
@@ -375,7 +359,7 @@ function AgentSidebar() {
                       handleSend();
                     }
                   }}
-                  disabled={isLoading}
+                  disabled={isThinking}
                   placeholder="Ask AI anything..."
                   className="flex-1 h-24 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
@@ -383,7 +367,7 @@ function AgentSidebar() {
                   size="icon"
                   className="self-end"
                   type="submit"
-                  disabled={isLoading || !inputValue.trim()}
+                  disabled={isThinking || !inputValue.trim()}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
