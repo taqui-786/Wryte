@@ -1,4 +1,5 @@
 import { EditorState, Plugin } from "prosemirror-state";
+import { Decoration, DecorationSet } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap, toggleMark } from "prosemirror-commands";
 import { history, undo, redo } from "prosemirror-history";
@@ -20,7 +21,7 @@ import {
 } from "prosemirror-markdown";
 
 // Create a custom markdown serializer that supports underline and strike marks
-const customMarkdownSerializer = new MarkdownSerializer(
+export const customMarkdownSerializer = new MarkdownSerializer(
   {
     ...defaultMarkdownSerializer.nodes,
   },
@@ -38,13 +39,13 @@ const customMarkdownSerializer = new MarkdownSerializer(
       mixable: true,
       expelEnclosingWhitespace: true,
     },
-  }
+  },
 );
 export function createEditorState(
   mySchema: any,
   viewRef: React.MutableRefObject<any>,
   defaultContent?: string | null,
-  onChange?: (json: any) => void
+  onChange?: (json: any) => void,
 ) {
   let startDoc: any;
 
@@ -131,6 +132,25 @@ export function createEditorState(
     },
   });
 
+  // Plugin that adds data-line="N" attributes to every top-level block node
+  const dataLinePlugin = new Plugin({
+    props: {
+      decorations(state) {
+        const decorations: Decoration[] = [];
+        let lineNumber = 1;
+        state.doc.forEach((node, pos) => {
+          decorations.push(
+            Decoration.node(pos, pos + node.nodeSize, {
+              "data-line": String(lineNumber),
+            }),
+          );
+          lineNumber++;
+        });
+        return DecorationSet.create(state.doc, decorations);
+      },
+    },
+  });
+
   const toolbarUpdatePlugin = new Plugin({
     view(editorView) {
       return {
@@ -166,6 +186,7 @@ export function createEditorState(
       placeholderPlugin("Let's start writing your document..."),
       autocompletePlugin(mySchema),
       gapCursor(),
+      dataLinePlugin,
       toolbarUpdatePlugin,
       selectionSizeTooltipPlugin,
     ],

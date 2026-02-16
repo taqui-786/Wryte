@@ -16,9 +16,10 @@ import { LinkSolid } from "./editorIcons";
 interface LinkPopoverProps {
   viewRef: React.MutableRefObject<EditorView | null>;
   mySchema: any;
+  isLocked?: boolean;
 }
 
-function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
+function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverProps) {
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
   const [linkHref, setLinkHref] = useState("");
   const [linkTitle, setLinkTitle] = useState("");
@@ -88,6 +89,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
   }, [isLinkPopoverOpen]);
 
   const toggleLink = () => {
+    if (isLocked) return;
     if (!viewRef.current) return;
     setIsLinkPopoverOpen(true);
     viewRef.current.focus();
@@ -219,6 +221,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
           onClick={toggleLink}
           className="tool-link"
           title="Add/Edit Link"
+          disabled={isLocked}
         >
           <LinkSolid size={"16"} />
         </Button>
@@ -247,6 +250,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
                 placeholder="https://example.com"
                 className="h-9"
                 autoFocus
+                disabled={isLocked}
               />
             </div>
             <div className="grid gap-2">
@@ -259,6 +263,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
                 onChange={(e) => setLinkTitle(e.target.value)}
                 placeholder="Link title"
                 className="h-9"
+                disabled={isLocked}
               />
             </div>
           </div>
@@ -271,6 +276,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
                   onClick={previewLink}
                   title="Open in new tab"
                   type="button"
+                  disabled={isLocked}
                 >
                   <ExternalLink size={16} />
                 </Button>
@@ -282,6 +288,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
                   onClick={removeLink}
                   title="Remove link"
                   type="button"
+                  disabled={isLocked}
                 >
                   <Trash2 size={16} />
                 </Button>
@@ -289,7 +296,7 @@ function EditorLinkPopover({ viewRef, mySchema }: LinkPopoverProps) {
             </div>
             <Button
               onClick={applyLink}
-              disabled={!linkHref.trim()}
+              disabled={isLocked || !linkHref.trim()}
               size="sm"
               type="button"
             >

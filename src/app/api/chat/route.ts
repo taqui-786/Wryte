@@ -1,7 +1,6 @@
 import { groq } from "@ai-sdk/groq";
 import {
   UIMessage,
-  UIMessageStreamWriter,
   convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
@@ -9,16 +8,16 @@ import {
   smoothStream,
   stepCountIs,
   streamText,
-  tool,
 } from "ai";
-import z from "zod";
-import { nanoid } from "nanoid";
-import { getCoordinates, getWeather } from "@/lib/serverAction";
+import {
+  editorTitleTool,
+  editorWriteTool,
+  weatherTool,
+} from "@/lib/tools";
 export type Metadata = {
   userMessage: string;
-  // attachments: Array<TAttachment>
-  // tweets: PayloadTweet[]
-  isRegenerated?: boolean;
+  editorContent?: string;
+  editorMarkdown?: string;
 };
 export type MyUIMessage = UIMessage<
   Metadata, // so this is extra information
@@ -35,12 +34,52 @@ export type MyUIMessage = UIMessage<
       text: string;
       status: "processing" | "reasoning" | "complete";
     };
+    "editor-update": {
+      markdown: string;
+      status: "processing" | "streaming" | "complete";
+      action?: string;
+    };
+    "title-update": {
+      title: string;
+      status: "processing" | "streaming" | "complete";
+    };
     get_weather_tool: {
+      status: "processing";
+    };
+    get_editor_content_tool: {
+      status: "processing";
+    };
+    write_in_editor_tool: {
+      status: "processing";
+    };
+    write_title_tool: {
       status: "processing";
     };
   },
   {
     // Tool defination
+    get_weather_tool: {
+      input: { location: string };
+      output: string;
+    };
+    get_editor_content_tool: {
+      input: Record<string, never>;
+      output: string;
+    };
+    write_in_editor_tool: {
+      input: {
+        action: string;
+        instructions: string;
+        selection?: string;
+      };
+      output: string;
+    };
+    write_title_tool: {
+      input: {
+        instructions?: string;
+      };
+      output: string;
+    };
     read_website_content: {
       input: { website_url: string };
       output: {
@@ -51,147 +90,59 @@ export type MyUIMessage = UIMessage<
     };
   }
 >;
-const weatherTool = ({ writer }: { writer: UIMessageStreamWriter }) => {
-  return tool({
-    description: "Get the real weather for a location",
-    inputSchema: z.object({
-      location: z.string().describe("City or place name"),
-    }),
-    execute: async ({ location }) => {
-      const generationId = nanoid();
-      let reasoning = "";
-      let isReasoningComplete = false;
-
-      // Step 1: Initial reasoning status
-      writer.write({
-        type: "data-tool-reasoning",
-        id: generationId,
-        data: {
-          text: "",
-          status: "processing",
-        },
-      });
-
-      writer.write({
-        type: "data-tool-output",
-        id: generationId,
-        data: {
-          text: "",
-          status: "processing",
-        },
-      });
-
-      // Step 2: Get coordinates
-      const place = await getCoordinates(location);
-
-      // Step 3: Get weather
-      const weather = await getWeather(place.latitude, place.longitude);
-      console.log(weather);
-
-      // Step 4: Stream the response
-      const result = streamText({
-        model: groq("openai/gpt-oss-20b"),
-        prompt: `
-You are a weather assistant.
-
-Using ONLY the data below, generate a clear and organized weather report.
-Keep it simple, readable, and well structured.
-
-Location: ${place.name}, ${place.country}
-Temperature: ${weather.temperature} °C
-Wind Speed: ${weather.windspeed} km/h
-Wind Direction: ${weather.winddirection} degrees
-Last Updated: ${weather.time}
-
-Format:
-- Title
-- Location
-- Current Conditions
-- Short summary at the end
-      `.trim(),
-        onChunk: ({ chunk }) => {
-          if (chunk.type === "reasoning-delta" && !isReasoningComplete) {
-            reasoning += chunk.text;
-            writer.write({
-              type: "data-tool-reasoning",
-              id: generationId,
-              data: {
-                text: reasoning,
-                status: "reasoning",
-              },
-            });
-          }
-        },
-        onStepFinish: async (step) => {
-          const reasoningContent = step.content.find(
-            (c) => c.type === "reasoning",
-          );
-
-          if (reasoningContent && reasoningContent.type === "reasoning") {
-            isReasoningComplete = true;
-
-            writer.write({
-              type: "data-tool-reasoning",
-              id: generationId,
-              data: {
-                text: reasoning,
-                status: "complete",
-              },
-            });
-          }
-        },
-      });
-
-      let fullText = "";
-      for await (const textPart of result.textStream) {
-        fullText += textPart;
-        writer.write({
-          type: "data-tool-output",
-          id: generationId,
-          data: {
-            text: fullText,
-            status: "streaming",
-          },
-        });
-      }
-
-      writer.write({
-        type: "data-tool-output",
-        id: generationId,
-        data: {
-          text: fullText,
-          status: "complete",
-        },
-      });
-
-      return fullText;
-    },
-  });
-};
 
 export async function POST(req: Request) {
   const { messages }: { messages: MyUIMessage[] } = await req.json();
+  const latestMetadata = messages[messages.length - 1]?.metadata;
+  const editorContent = latestMetadata?.editorContent;
+  const editorMarkdown = latestMetadata?.editorMarkdown;
   const stream = createUIMessageStream<MyUIMessage>({
     generateId: createIdGenerator({
       prefix: "msg",
       size: 16,
     }),
     execute: async ({ writer }) => {
-      // const generationId = nanoid();
-      // writer.write({
-      //   type: "data-main-response",
-      //   id: generationId,
-      //   data: {
-      //     text: "",
-      //     status: "streaming",
-      //   },
-      // });
-      // console.log("Ready to send message");
       const get_weather_tool = weatherTool({ writer });
+
+      const write_in_editor_tool = editorWriteTool({
+        writer,
+        editorContent,
+        editorMarkdown,
+      });
+      const write_title_tool = editorTitleTool({
+        writer,
+        editorContent,
+        editorMarkdown,
+      });
       const result = streamText({
         model: groq("openai/gpt-oss-20b"),
 
-        system: `You are Wryte, a helpful AI assistant. Provide clear, accurate, and well-structured responses.  Be concise but comprehensive when answering questions.
+        system: `<instruction>
+            <task>
+    You are a agent that can read, write, edit, summarize, expand, fix, translate, or otherwise change the editor content. And you have access to editorContent and EditorTitle
+    </task>
+    <rules>
+    <rule>
+    Always respond in a clear, concise, and well-structured manner (But never in a table format instead use bullet points).
+    </rule>
+    <rule>
+    Use the available tools to assist you in your tasks.
+    </rule>
+    <rule>
+    Always respond in the same language as the user.
+    </rule>
+    <rule>
+    If you used any tool in this request, keep the final response short (1-3 sentences).
+    Do not explain the context. Act like an agent: state what you did and what changed.
+    Mention the specific section or line range if relevant (e.g. "Updated the intro paragraph" or "Changed lines 3-6").
+    </rule>
+    </rules>
+    <content note="this is the content of the editor (HTML)" >
+    ${editorContent ?? "-Blank-Editor-Content-"}
+    </content>
+    <content note="this is the content of the editor (Markdown)" >
+    ${editorMarkdown ?? "-Blank-Editor-Markdown-"}
+    </content>
           <available_tools note="You have the following tools at your disposal to assist you in your tasks.
           " >
             <tool>
@@ -200,12 +151,30 @@ export async function POST(req: Request) {
 </when_to_use>
     <description>Get the weather in a location</description>
 </tool>
+
+            <tool>
+    <name>write_in_editor_tool</name>
+    <when_to_use>Use this tool when the user asks you to write, rewrite, expand, summarize, continue, fix, translate, or otherwise change the editor content.
+</when_to_use>
+    <description>Write or edit the document and return the updated Markdown. After calling this tool, respond with a short summary of what changed.</description>
+</tool>
+            <tool>
+    <name>write_title_tool</name>
+    <when_to_use>Use this tool when the user asks for a title, heading, or document name.</when_to_use>
+    <description>Generate a concise title for the document. After calling this tool, reply briefly with the new title.</description>
+</tool>
    
 </available_tools>
+
+
+</instruction>
           `,
         messages: await convertToModelMessages(messages),
         tools: {
           get_weather_tool,
+    
+          write_in_editor_tool,
+          write_title_tool,
         },
 
         stopWhen: stepCountIs(5),

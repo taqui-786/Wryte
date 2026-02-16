@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, Activity } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { useCreateDoc } from "@/lib/queries/createDocQuery";
 import { useQuery } from "@tanstack/react-query";
@@ -17,11 +17,181 @@ import { ClockIcon, LoadingSpinnerIcon, MenuIcon } from "./customIcons";
 import { Button } from "./ui/button";
 import { DeleteIcon } from "./my-editor/editorIcons";
 import { Input } from "./ui/input";
-import MyEditor from "./my-editor/MyEditor";
+import MyEditor, {
+  type AIChange,
+  type MyEditorHandle,
+} from "./my-editor/MyEditor";
 import DeletePageDailog from "./DeletePageDailog";
 import AgentSidebar from "./agent/AgentSidebar";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
+import { marked } from "marked";
+import z from "zod";
+
+const ChangeSchema = z.object({
+  line: z.number().int().positive(),
+  type: z.enum(["replace", "delete", "insert"]),
+  content: z.string(),
+});
+
+const AIResponseSchema = z.object({
+  elements: z.array(z.any()),
+});
+
+type AIStreamStatus = "processing" | "streaming" | "complete";
+
+type EditorUpdatePayload = {
+  id?: string;
+  status: AIStreamStatus;
+  markdown: string;
+};
+
+type TitleUpdatePayload = {
+  id?: string;
+  status: AIStreamStatus;
+  title: string;
+};
+
+function safeParseChanges(input: unknown): AIChange[] {
+  let parsed = input;
+
+  if (typeof input === "string") {
+    try {
+      parsed = JSON.parse(input);
+    } catch (err) {
+      console.error("Failed to JSON.parse AI output", err);
+      return [];
+    }
+  }
+
+  // Handle both { elements: [...] } and raw array formats
+  let rawItems: unknown[];
+  if (Array.isArray(parsed)) {
+    rawItems = parsed;
+  } else {
+    const result = AIResponseSchema.safeParse(parsed);
+    if (!result.success) {
+      console.error("Invalid AI output shape", result.error);
+      return [];
+    }
+    rawItems = result.data.elements;
+  }
+
+  // Validate each item against ChangeSchema
+  const validated: AIChange[] = [];
+  for (const item of rawItems) {
+    const res = ChangeSchema.safeParse(item);
+    if (res.success) {
+      validated.push(res.data);
+    }
+  }
+  return validated;
+}
+
+function extractJsonObjectsFromStream(text: string): unknown[] {
+  const objects: unknown[] = [];
+  let inString = false;
+  let escape = false;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let objStart = -1;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (ch === "\\") {
+        escape = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "[") {
+      bracketDepth += 1;
+      continue;
+    }
+
+    if (ch === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+
+    if (bracketDepth < 1) continue;
+
+    if (ch === "{") {
+      if (braceDepth === 0) {
+        objStart = i;
+      }
+      braceDepth += 1;
+      continue;
+    }
+
+    if (ch === "}") {
+      if (braceDepth > 0) {
+        braceDepth -= 1;
+      }
+      if (braceDepth === 0 && objStart >= 0) {
+        const slice = text.slice(objStart, i + 1);
+        objStart = -1;
+        try {
+          objects.push(JSON.parse(slice));
+        } catch {
+          // ignore invalid partial object
+        }
+      }
+    }
+  }
+
+  return objects;
+}
+
+function safeParseChangesFromStream(input: string): AIChange[] {
+  const trimmed = input.trim();
+  if (!trimmed) return [];
+
+  const direct = safeParseChanges(trimmed);
+  if (direct.length > 0) return direct;
+
+  const rawObjects = extractJsonObjectsFromStream(trimmed);
+  if (rawObjects.length === 0) return [];
+
+  const validated: AIChange[] = [];
+  for (const item of rawObjects) {
+    const res = ChangeSchema.safeParse(item);
+    if (res.success) validated.push(res.data);
+  }
+  return validated;
+}
+
+const looksLikeJson = (text: string) => /^[\[{]/.test(text.trim());
+
+/**
+ * Adds data-line="N" attributes to every top-level block element in an HTML string.
+ * Only targets top-level block tags (p, h1-h6, blockquote, pre, ul, ol, hr, div, table).
+ */
+function addDataLineAttributes(html: string): string {
+  let lineNumber = 0;
+  return html.replace(
+    /(<(?:p|h[1-6]|blockquote|pre|ul|ol|hr|div|table))([\s>])/gi,
+    (_match, tag, after) => {
+      lineNumber++;
+      return `${tag} data-line="${lineNumber}"${after}`;
+    },
+  );
+}
 
 function WriteClient() {
   const { mutateAsync: createDoc, isPending } = useCreateDoc();
@@ -30,11 +200,22 @@ function WriteClient() {
   const [heading, setHeading] = useState("");
   const [value, setValue] = useState("");
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isAIApplying, setIsAIApplying] = useState(false);
   const saveTimeoutRef = useRef<number | null>(null);
   const latestHeadingRef = useRef("");
   const [open, setOpen] = useState(false);
   const latestValueRef = useRef("");
   const isInitialLoadRef = useRef(false);
+  const editorRef = useRef<MyEditorHandle>(null);
+  const isAIApplyingRef = useRef(false);
+  const activeAIStreamsRef = useRef(0);
+  const editorStreamIntervalRef = useRef<number | null>(null);
+  const editorStreamIdRef = useRef(0);
+  const titleStreamIntervalRef = useRef<number | null>(null);
+  const titleStreamIdRef = useRef(0);
+  const activeEditorStreamIdRef = useRef<string | null>(null);
+  const activeTitleStreamIdRef = useRef<string | null>(null);
+  const aiStreamBaseMarkdownRef = useRef<string | null>(null);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["page", docs],
     queryFn: async () => await getDocsById(docs as string),
@@ -59,19 +240,67 @@ function WriteClient() {
       latestValueRef.current = "";
     }
   }, [data, docs]);
-  const updateDocHandler = async () => {
-    if (docs) {
-      await updateDoc({
-        docId: docs as string,
-        title: heading,
-        content: value,
-      });
+
+  const setAIApplyingState = (next: boolean) => {
+    isAIApplyingRef.current = next;
+    setIsAIApplying(next);
+  };
+
+  const beginAIAction = () => {
+    activeAIStreamsRef.current += 1;
+    if (activeAIStreamsRef.current === 1) {
+      setAIApplyingState(true);
     }
   };
-  const handleChange = (content: string) => {
-    setValue(content);
-    latestValueRef.current = content;
 
+  const endAIAction = () => {
+    activeAIStreamsRef.current = Math.max(0, activeAIStreamsRef.current - 1);
+    if (activeAIStreamsRef.current === 0) {
+      setAIApplyingState(false);
+    }
+  };
+
+  const beginEditorStream = (id?: string) => {
+    if (activeEditorStreamIdRef.current === id) return;
+    activeEditorStreamIdRef.current = id ?? "stream";
+    aiStreamBaseMarkdownRef.current = latestValueRef.current;
+    beginAIAction();
+  };
+
+  const endEditorStream = (id?: string) => {
+    if (!activeEditorStreamIdRef.current) return;
+    if (id && activeEditorStreamIdRef.current !== id) return;
+    activeEditorStreamIdRef.current = null;
+    aiStreamBaseMarkdownRef.current = null;
+    endAIAction();
+  };
+
+  const beginTitleStream = (id?: string) => {
+    if (activeTitleStreamIdRef.current === id) return;
+    activeTitleStreamIdRef.current = id ?? "stream";
+    beginAIAction();
+  };
+
+  const endTitleStream = (id?: string) => {
+    if (!activeTitleStreamIdRef.current) return;
+    if (id && activeTitleStreamIdRef.current !== id) return;
+    activeTitleStreamIdRef.current = null;
+    endAIAction();
+  };
+
+  const cancelStream = (
+    intervalRef: React.MutableRefObject<number | null>,
+    streamIdRef: React.MutableRefObject<number>,
+  ) => {
+    streamIdRef.current += 1;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      endAIAction();
+    }
+  };
+
+  const queueAutoSave = (nextHeading: string, nextValue: string) => {
     if (!docs || isInitialLoadRef.current) {
       return;
     }
@@ -86,8 +315,8 @@ function WriteClient() {
       try {
         await updateDoc({
           docId: docs as string,
-          title: latestHeadingRef.current,
-          content: latestValueRef.current,
+          title: nextHeading,
+          content: nextValue,
         });
       } catch (err) {
         console.error(err);
@@ -97,34 +326,139 @@ function WriteClient() {
     }, 1000);
   };
 
-  const handleHeadingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newHeading = e.target.value;
-    setHeading(newHeading);
+  const startAIStream = (
+    text: string,
+    onUpdate: (chunk: string) => void,
+    onComplete: () => void,
+    intervalRef: React.MutableRefObject<number | null>,
+    streamIdRef: React.MutableRefObject<number>,
+  ) => {
+    cancelStream(intervalRef, streamIdRef);
 
+    streamIdRef.current += 1;
+    const streamId = streamIdRef.current;
+
+    const totalLength = text.length;
+    if (totalLength === 0) {
+      beginAIAction();
+      onUpdate("");
+      onComplete();
+      endAIAction();
+      return;
+    }
+
+    const intervalMs = 16;
+    const maxDurationMs = 3500;
+    const maxSteps = Math.max(1, Math.floor(maxDurationMs / intervalMs));
+    const stepSize =
+      totalLength <= 400 ? 1 : Math.max(1, Math.ceil(totalLength / maxSteps));
+    let index = 0;
+
+    const tick = () => {
+      if (streamId !== streamIdRef.current) return;
+      index = Math.min(totalLength, index + stepSize);
+      onUpdate(text.slice(0, index));
+      if (index >= totalLength) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        endAIAction();
+        onComplete();
+      }
+    };
+
+    beginAIAction();
+    tick();
+    intervalRef.current = window.setInterval(tick, intervalMs);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (editorStreamIntervalRef.current) {
+        clearInterval(editorStreamIntervalRef.current);
+        editorStreamIntervalRef.current = null;
+      }
+      if (titleStreamIntervalRef.current) {
+        clearInterval(titleStreamIntervalRef.current);
+        titleStreamIntervalRef.current = null;
+      }
+      activeAIStreamsRef.current = 0;
+    };
+  }, []);
+  const updateDocHandler = async () => {
+    if (docs) {
+      await updateDoc({
+        docId: docs as string,
+        title: heading,
+        content: value,
+      });
+    }
+  };
+  const handleChange = (content: string) => {
+    setValue(content);
+    latestValueRef.current = content;
+
+    if (!docs || isInitialLoadRef.current || isAIApplyingRef.current) {
+      return;
+    }
+
+    queueAutoSave(latestHeadingRef.current, latestValueRef.current);
+  };
+
+  const applyHeadingUpdate = (
+    newHeading: string,
+    options?: { skipAutoSave?: boolean },
+  ) => {
+    setHeading(newHeading);
     latestHeadingRef.current = newHeading;
 
-    if (docs && !isInitialLoadRef.current) {
-      // Auto-save for existing docs
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-
-      saveTimeoutRef.current = window.setTimeout(async () => {
-        setIsAutoSaving(true);
-
-        try {
-          await updateDoc({
-            docId: docs as string,
-            title: latestHeadingRef.current,
-            content: latestValueRef.current,
-          });
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setIsAutoSaving(false);
-        }
-      }, 1000);
+    if (options?.skipAutoSave || isAIApplyingRef.current) {
+      return;
     }
+
+    queueAutoSave(newHeading, latestValueRef.current);
+  };
+
+  const handleHeadingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newHeading = e.target.value;
+    applyHeadingUpdate(newHeading);
+  };
+
+  const streamEditorUpdate = (nextMarkdown: string) => {
+    if (nextMarkdown === latestValueRef.current) return;
+
+    startAIStream(
+      nextMarkdown,
+      (chunk) => {
+        setValue(chunk);
+        latestValueRef.current = chunk;
+      },
+      () => {
+        latestValueRef.current = nextMarkdown;
+        setValue(nextMarkdown);
+        queueAutoSave(latestHeadingRef.current, nextMarkdown);
+      },
+      editorStreamIntervalRef,
+      editorStreamIdRef,
+    );
+  };
+
+  const resolveMarkdownFromAIOutput = (
+    aiOutput: string,
+    baseMarkdown?: string | null,
+  ) => {
+    const changes = safeParseChangesFromStream(aiOutput);
+    if (changes.length === 0 || !editorRef.current) return null;
+
+    if (baseMarkdown) {
+      return editorRef.current.getMarkdownAfterAIChangesFromBase(
+        baseMarkdown,
+        changes,
+      );
+    }
+
+    return editorRef.current.getMarkdownAfterAIChanges(changes);
   };
 
   const handleCreatePost = async () => {
@@ -133,114 +467,217 @@ function WriteClient() {
       return;
     }
   };
+
+  /**
+   * Handles AI-generated editor updates — parses the structured JSON output
+   * from the AI and applies line-level changes via the editor's imperative handle.
+   * Falls back to full-document replace if parsing fails.
+   */
+  const handleAIEditorUpdate = ({
+    id,
+    status,
+    markdown,
+  }: EditorUpdatePayload) => {
+    if (!markdown && status === "processing") {
+      beginEditorStream(id);
+      return;
+    }
+
+    if (status === "processing") {
+      beginEditorStream(id);
+      return;
+    }
+
+    if (status === "streaming") {
+      beginEditorStream(id);
+      cancelStream(editorStreamIntervalRef, editorStreamIdRef);
+
+      const baseMarkdown =
+        aiStreamBaseMarkdownRef.current ?? latestValueRef.current;
+      const nextMarkdown = resolveMarkdownFromAIOutput(markdown, baseMarkdown);
+      if (!nextMarkdown) return;
+      if (nextMarkdown === latestValueRef.current) return;
+
+      setValue(nextMarkdown);
+      latestValueRef.current = nextMarkdown;
+      return;
+    }
+
+    // status === "complete"
+    const baseMarkdown =
+      aiStreamBaseMarkdownRef.current ?? latestValueRef.current;
+    const nextMarkdown = resolveMarkdownFromAIOutput(markdown, baseMarkdown);
+
+    if (nextMarkdown && nextMarkdown !== latestValueRef.current) {
+      setValue(nextMarkdown);
+      latestValueRef.current = nextMarkdown;
+      queueAutoSave(latestHeadingRef.current, nextMarkdown);
+      endEditorStream(id);
+      return;
+    }
+
+    if (!looksLikeJson(markdown) && markdown.trim()) {
+      streamEditorUpdate(markdown);
+    }
+
+    endEditorStream(id);
+  };
+
+  const handleAITitleUpdate = ({
+    id,
+    status,
+    title,
+  }: TitleUpdatePayload) => {
+    if (status === "processing") {
+      beginTitleStream(id);
+      return;
+    }
+
+    if (status === "streaming") {
+      beginTitleStream(id);
+      cancelStream(titleStreamIntervalRef, titleStreamIdRef);
+      if (!title) return;
+      setHeading(title);
+      latestHeadingRef.current = title;
+      return;
+    }
+
+    if (!title) {
+      endTitleStream(id);
+      return;
+    }
+
+    setHeading(title);
+    latestHeadingRef.current = title;
+    queueAutoSave(title, latestValueRef.current);
+    endTitleStream(id);
+  };
+
   if (isLoading) {
     return <WriteClientSkeleton />;
   }
+  console.log(
+    addDataLineAttributes(marked.parse(latestValueRef.current) as string),
+  );
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="overflow-hidden " >
+    <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
       <ResizablePanel defaultSize={70} className="max-h-[calc(100vh-3.5rem)]">
         <ScrollArea className="h-full">
-
-        
-        <div className="w-full flex p-4  justify-center">
-          <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
-            <div className="p-2 flex items-center justify-between">
-              <div className="">
-                {data?.[0]?.id && docs ? (
-                  <div className="flex gap-2 items-center text-muted-foreground">
-                    <ClockIcon size="20" />
-                    <span className="text-sm font-medium">
-                      Last edited{" "}
-                      {formatDistanceToNow(new Date(data?.[0]?.updatedAt))} ago
-                    </span>
-                  </div>
-                ) : (
-                  ""
-                )}
-              </div>
-              <div className="">
-                {data?.[0]?.id && docs ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Button
-                      disabled={isUpdatingDoc}
-                      onClick={updateDocHandler || isAutoSaving}
-                      variant={"outline"}
-                    >
-                      {isAutoSaving ? (
+          <div className="w-full flex p-4  justify-center">
+            <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
+              <div className="p-2 flex items-center justify-between">
+                <div className="">
+                  {data?.[0]?.id && docs ? (
+                    <div className="flex gap-2 items-center text-muted-foreground">
+                      <ClockIcon size="20" />
+                      <span className="text-sm font-medium">
+                        Last edited{" "}
+                        {formatDistanceToNow(new Date(data?.[0]?.updatedAt))}{" "}
+                        ago
+                      </span>
+                    </div>
+                  ) : (
+                    ""
+                  )}
+                </div>
+                <div className="">
+                  {data?.[0]?.id && docs ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        disabled={isUpdatingDoc}
+                        onClick={updateDocHandler || isAutoSaving}
+                        variant={"outline"}
+                      >
+                        {isAutoSaving ? (
+                          <>
+                            Auto Saving{" "}
+                            <LoadingSpinnerIcon
+                              size="18"
+                              className="animate-spin"
+                            />
+                          </>
+                        ) : isUpdatingDoc ? (
+                          <>
+                            Saving
+                            <LoadingSpinnerIcon
+                              size="18"
+                              className="animate-spin"
+                            />
+                          </>
+                        ) : (
+                          "Save Changes"
+                        )}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size={"icon"} variant={"outline"}>
+                            <MenuIcon size={"20"} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+         
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setOpen(true)}
+                          >
+                            <DeleteIcon size={"16"} />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ) : (
+                    <Button disabled={isPending} onClick={handleCreatePost}>
+                      {isPending ? (
                         <>
-                          Auto Saving{" "}
-                          <LoadingSpinnerIcon
-                            size="18"
-                            className="animate-spin"
-                          />
-                        </>
-                      ) : isUpdatingDoc ? (
-                        <>
-                          Saving
+                          Creating
                           <LoadingSpinnerIcon
                             size="18"
                             className="animate-spin"
                           />
                         </>
                       ) : (
-                        "Save Changes"
+                        "Create Page"
                       )}
                     </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size={"icon"} variant={"outline"}>
-                          <MenuIcon size={"20"} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {/* <DropdownMenuLabel >
-                  
-                  </DropdownMenuLabel> */}
-                        {/* <DropdownMenuSeparator /> */}
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => setOpen(true)}
-                        >
-                          <DeleteIcon size={"16"} />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ) : (
-                  <Button disabled={isPending} onClick={handleCreatePost}>
-                    {isPending ? (
-                      <>
-                        Creating
-                        <LoadingSpinnerIcon
-                          size="18"
-                          className="animate-spin"
-                        />
-                      </>
-                    ) : (
-                      "Create Page"
-                    )}
-                  </Button>
-                )}
+                  )}
+                </div>
               </div>
+              <Input
+                type="text"
+                placeholder="Write a heading of your post..."
+                className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
+                value={heading}
+                onChange={handleHeadingChange}
+                disabled={isAIApplying}
+              />
+              {/* </div> */}
+              <MyEditor
+                ref={editorRef}
+                onChange={handleChange}
+                value={value || ""}
+                isLocked={isAIApplying}
+              />
+              <DeletePageDailog open={open} setOpen={setOpen} />
             </div>
-            <Input
-              type="text"
-              placeholder="Write a heading of your post..."
-              className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
-              value={heading}
-              onChange={handleHeadingChange}
-            />
-            {/* </div> */}
-            <MyEditor onChange={handleChange} value={value || ""} />
-            <DeletePageDailog open={open} setOpen={setOpen} />
           </div>
-        </div></ScrollArea>
+        </ScrollArea>
       </ResizablePanel>
-      <ResizableHandle withHandle  />
+      <ResizableHandle withHandle />
       <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-3.5rem)]">
-        <AgentSidebar />
+        <AgentSidebar
+          editorContent={addDataLineAttributes(
+            marked.parse(latestValueRef.current) as string,
+          )}
+          editorMarkdown={latestValueRef.current}
+          onEditorUpdate={(nextOutput) => {
+            handleAIEditorUpdate(nextOutput);
+          }}
+          onTitleUpdate={(nextTitle) => {
+            handleAITitleUpdate(nextTitle);
+          }}
+        />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

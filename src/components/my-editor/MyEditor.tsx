@@ -1,17 +1,41 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { nodes as basicNodes, marks } from "./myEditorSchema";
-import { DOMParser, Schema, Slice } from "prosemirror-model";
+import { DOMParser, Fragment, Schema, Slice, Node as PMNode } from "prosemirror-model";
 import { orderedList, bulletList, listItem } from "prosemirror-schema-list";
 import { MyEditorToolbar } from "./MyEditorToolbar";
 import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
 import { EditorView } from "prosemirror-view";
 import { createEditorState } from "./EditorConfig";
-import { defaultMarkdownParser } from "prosemirror-markdown";
+import { EditorState } from "prosemirror-state";
 // @ts-ignore
 import "./myEditorStyle.css";
 import { marked } from "marked";
+import { customMarkdownSerializer } from "./EditorConfig";
+
+/** A single line-level change from the AI */
+export type AIChange = {
+  line: number;
+  type: "replace" | "delete" | "insert";
+  content: string;
+};
+
+/** Imperative handle exposed by MyEditor via ref */
+export interface MyEditorHandle {
+  applyAIChanges: (changes: AIChange[]) => void;
+  getMarkdownAfterAIChanges: (changes: AIChange[]) => string | null;
+  getMarkdownAfterAIChangesFromBase: (
+    baseMarkdown: string,
+    changes: AIChange[],
+  ) => string | null;
+}
 
 const mySchema = new Schema({
   nodes: {
@@ -30,21 +54,140 @@ const mySchema = new Schema({
   },
   marks,
 });
-function MyEditor({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange?: (value: string) => void;
-}) {
+const MyEditor = forwardRef<
+  MyEditorHandle,
+  {
+    value: string;
+    onChange?: (value: string) => void;
+    isLocked?: boolean;
+  }
+>(function MyEditor({ value, onChange, isLocked = false }, ref) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const [run, setRun] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const lastEditorValueRef = useRef<string | null>(null);
+  const isApplyingExternalUpdateRef = useRef(false);
+
+  const buildAIChangeTransaction = (
+    changes: AIChange[],
+    baseDoc?: PMNode,
+  ) => {
+    const view = viewRef.current;
+    if (!view && !baseDoc) {
+      console.warn("applyAIChanges: editor view not ready");
+      return null;
+    }
+
+    // Sort changes by line DESC so earlier positions stay valid
+    const sorted = [...changes].sort((a, b) => b.line - a.line);
+
+    let tr = baseDoc
+      ? EditorState.create({ doc: baseDoc, schema: mySchema }).tr
+      : view!.state.tr;
+
+    for (const change of sorted) {
+      const doc = tr.doc;
+      const childCount = doc.childCount;
+      // line is 1-indexed, index is 0-indexed
+      const idx = change.line - 1;
+
+      if (change.type === "delete") {
+        if (idx < 0 || idx >= childCount) continue;
+        const child = doc.child(idx);
+        let pos = 0;
+        for (let i = 0; i < idx; i++) pos += doc.child(i).nodeSize;
+        tr = tr.delete(pos, pos + child.nodeSize);
+      } else if (change.type === "replace") {
+        if (idx < 0 || idx >= childCount) continue;
+        const child = doc.child(idx);
+        let pos = 0;
+        for (let i = 0; i < idx; i++) pos += doc.child(i).nodeSize;
+
+        // Parse the new content as HTML → ProseMirror fragment
+        const html = marked.parse(change.content) as string;
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+        const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+        tr = tr.replaceWith(pos, pos + child.nodeSize, parsed.content);
+      } else if (change.type === "insert") {
+        // Insert AFTER the node at `line - 1`.
+        // If line is 0 or the doc is empty, insert at the start.
+        let pos: number;
+        if (idx <= 0 || childCount === 0) {
+          pos = 0;
+        } else {
+          // clamp index to last child
+          const clampedIdx = Math.min(idx, childCount) - 1;
+          pos = 0;
+          for (let i = 0; i <= clampedIdx; i++)
+            pos += doc.child(i).nodeSize;
+        }
+
+        const html = marked.parse(change.content) as string;
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+        const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+        tr = tr.insert(pos, parsed.content);
+      }
+    }
+
+    return tr;
+  };
+
+  const parseMarkdownToDoc = (markdown: string) => {
+    const html = marked.parse(markdown);
+    const temp = document.createElement("div");
+    temp.innerHTML = html as string;
+    return DOMParser.fromSchema(mySchema).parse(temp);
+  };
+
+  // ── Expose applyAIChanges to parent via ref ──
+  useImperativeHandle(
+    ref,
+    () => ({
+      applyAIChanges(changes: AIChange[]) {
+        const view = viewRef.current;
+        if (!view) return;
+
+        const tr = buildAIChangeTransaction(changes);
+        if (tr?.docChanged) view.dispatch(tr);
+      },
+      getMarkdownAfterAIChanges(changes: AIChange[]) {
+        const view = viewRef.current;
+        if (!view) return null;
+
+        const tr = buildAIChangeTransaction(changes);
+        if (!tr?.docChanged) return null;
+
+        return customMarkdownSerializer.serialize(tr.doc);
+      },
+      getMarkdownAfterAIChangesFromBase(baseMarkdown: string, changes: AIChange[]) {
+        if (!baseMarkdown) return null;
+        const baseDoc = parseMarkdownToDoc(baseMarkdown);
+        const tr = buildAIChangeTransaction(changes, baseDoc);
+        if (!tr?.docChanged) return null;
+
+        return customMarkdownSerializer.serialize(tr.doc);
+      },
+    }),
+    [],
+  );
   useEffect(() => {
     if (!editorRef.current) return;
 
-    const state = createEditorState(mySchema, viewRef, null, onChange);
+    const handleInternalChange = (md: string) => {
+      lastEditorValueRef.current = md;
+      if (!isApplyingExternalUpdateRef.current) {
+        onChange?.(md);
+      }
+    };
+
+    const state = createEditorState(
+      mySchema,
+      viewRef,
+      null,
+      handleInternalChange,
+    );
 
     const toolLink = document.querySelectorAll("tool-link");
 
@@ -75,7 +218,7 @@ function MyEditor({
           temp.innerHTML = html;
           const parsedDoc = DOMParser.fromSchema(mySchema).parse(temp);
           const tr = view.state.tr.replaceSelection(
-            new Slice(parsedDoc.content, 0, 0)
+            new Slice(parsedDoc.content, 0, 0),
           );
           view.dispatch(tr);
           return true;
@@ -194,13 +337,13 @@ function MyEditor({
     };
   }, []);
   useEffect(() => {
-    if (!viewRef.current || !value) return;
-    if (run) return;
-    setRun(true);
+    if (!viewRef.current) return;
+    if (value === undefined || value === null) return;
+    if (value === lastEditorValueRef.current) return;
     try {
-      // Convert markdown → HTML
+      // Convert markdown -> HTML
       const html = marked.parse(value);
-      // Parse HTML → ProseMirror doc
+      // Parse HTML -> ProseMirror doc
       const parser = DOMParser.fromSchema(mySchema);
       const temp = document.createElement("div");
       temp.innerHTML = html as string;
@@ -208,17 +351,31 @@ function MyEditor({
 
       // Replace the editor content
       const view = viewRef.current;
+      isApplyingExternalUpdateRef.current = true;
       const tr = view.state.tr.replaceWith(
         0,
         view.state.doc.content.size,
-        newDoc.content
+        newDoc.content,
       );
 
       view.dispatch(tr);
+      lastEditorValueRef.current = value;
+      isApplyingExternalUpdateRef.current = false;
     } catch (err) {
+      isApplyingExternalUpdateRef.current = false;
       console.error("Markdown parsing failed:", err);
     }
   }, [value]);
+  useEffect(() => {
+    if (!viewRef.current) return;
+    viewRef.current.setProps({
+      editable: () => !isLocked,
+    });
+    viewRef.current.dom.setAttribute(
+      "aria-disabled",
+      isLocked ? "true" : "false",
+    );
+  }, [isLocked]);
   return (
     <div
       className={`h-fit border transition-colors duration-200 group ${
@@ -229,11 +386,16 @@ function MyEditor({
         viewRef={viewRef}
         mySchema={mySchema}
         isFocused={isFocused}
+        isLocked={isLocked}
       />
 
-      <div ref={editorRef} spellCheck={false} />
+      <div
+        ref={editorRef}
+        spellCheck={false}
+        className={isLocked ? "pointer-events-none opacity-80" : undefined}
+      />
     </div>
   );
-}
+});
 
 export default MyEditor;

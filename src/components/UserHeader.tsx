@@ -1,5 +1,5 @@
 "use client";
-import { authClient, signOut } from "@/lib/authClient";
+import { signOut } from "@/lib/authClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SidebarTrigger } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { getServerUserSession } from "@/lib/serverAction";
 import { useRouter } from "next/navigation";
@@ -55,15 +56,22 @@ function UserHeader() {
     }
   };
   return (
-    <header className="w-full p-2 flex border-b justify-between items-center">
+    <header className="w-full p-2 flex border-b justify-between items-center gap-4">
       <SidebarTrigger />
       {isPending ? (
-        <Spinner className="size-4" />
+        <div className="flex items-center gap-3">
+       
+          <Skeleton className="h-9 w-9 rounded-full" />
+        </div>
       ) : (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-              <Avatar className="h-8 w-8">
+            <Button
+              variant="ghost"
+              className="relative flex h-auto items-center gap-3 rounded-full px-2 py-1"
+            >
+          
+              <Avatar className="h-9 w-9">
                 <AvatarImage
                   src={user?.image as string}
                   alt={user?.name || "User"}
@@ -84,7 +92,7 @@ function UserHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild >
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={isLoading}>

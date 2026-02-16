@@ -270,14 +270,14 @@ const CheckBadge = ({ size }: CheckBadgeProps) => (
       />
       <path
         stroke="#191919"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         d="M10.814 2.074a1.52 1.52 0 0 1 2.372 0l1.41 1.755a1.52 1.52 0 0 0 1.35.558l2.237-.243a1.52 1.52 0 0 1 1.674 1.676l-.244 2.236a1.52 1.52 0 0 0 .56 1.35l1.753 1.409a1.52 1.52 0 0 1 0 2.372l-1.754 1.41a1.52 1.52 0 0 0-.56 1.349l.245 2.237a1.522 1.522 0 0 1-1.676 1.675l-2.237-.243a1.52 1.52 0 0 0-1.35.559l-1.408 1.752a1.518 1.518 0 0 1-2.372 0l-1.408-1.754a1.52 1.52 0 0 0-1.35-.56l-2.237.244a1.52 1.52 0 0 1-1.675-1.675l.243-2.237a1.52 1.52 0 0 0-.559-1.349l-1.754-1.408a1.52 1.52 0 0 1 0-2.372l1.754-1.409a1.52 1.52 0 0 0 .56-1.35L4.143 5.82a1.52 1.52 0 0 1 1.675-1.676l2.237.243a1.52 1.52 0 0 0 1.35-.558z"
       />
       <path
         stroke="#191919"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         d="m15.65 9.72l-3.714 4.95a.7.7 0 0 1-1.054.077l-2.228-2.23"
       />
     </g>
@@ -297,10 +297,10 @@ const Warning = ({ size }: WarningProps) => (
   >
     <title>warning</title>
     <g
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-miterlimit="10"
-      stroke-width="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit="10"
+      strokeWidth="2"
     >
       <path
         fill="#fcea2b"
@@ -315,10 +315,10 @@ const Warning = ({ size }: WarningProps) => (
     <g
       fill="none"
       stroke="#000"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-miterlimit="10"
-      stroke-width="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit="10"
+      strokeWidth="2"
     >
       <path d="M32.522 13.005c.698-1.205 1.986-2.024 3.478-2.024c1.492 0 2.78.82 3.478 2.024L60.446 54.94A4 4 0 0 1 61 56.948a4.032 4.032 0 0 1-4.032 4.033l-41.936.017A4.033 4.033 0 0 1 11 56.966c0-.736.211-1.415.554-2.009l20.968-41.952" />
       <path d="M37.613 47.27a1.613 1.613 0 0 1-3.226 0V23.893a1.613 1.613 0 0 1 3.226 0v23.379z" />

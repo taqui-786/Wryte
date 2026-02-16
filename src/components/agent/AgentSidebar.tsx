@@ -15,7 +15,136 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Brain01FreeIcons, ToolsIcon } from "@hugeicons/core-free-icons";
 import { Markdown } from "../ui/markdown";
 
-// Message bubble component
+// --- Helpers for dynamic tool card rendering ---
+
+/** Prettify a raw part type into a human-readable label.
+ *  "tool-get_weather_tool"   → "Get Weather"
+ *  "data-editor-update"      → "Editor Update"
+ *  "data-tool-reasoning"     → "Tool Reasoning"
+ */
+function prettifyPartType(type: string): string {
+  return type
+    .replace(/^(data-|tool-)/, "") // strip prefix
+    .replace(/_tool$/, "") // strip trailing _tool
+    .replace(/[_-]/g, " ") // underscores/dashes → spaces
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // Title Case
+}
+
+type ToolCardProps = {
+  statusMessage: string;
+  statusBadge: string;
+  isComplete: boolean;
+  previewText?: string;
+  previewIsMarkdown?: boolean;
+};
+
+/** Derive a unified card model from ANY data-* or tool-* part. */
+function getToolCardProps(part: any): ToolCardProps | null {
+  const type: string = part.type ?? "";
+  const status: string = part.data?.status ?? "processing";
+  const isComplete = status === "complete";
+  const label = prettifyPartType(type);
+
+  // tool-* invocation parts  (tool-get_weather_tool, tool-write_in_editor_tool, …)
+  // if (type.startsWith("tool-")) {
+  //   return {
+  //     statusMessage: `Running ${label}`,
+  //     statusBadge: status,
+  //     isComplete: false,
+  //   };
+  // }
+
+  // data-editor-update
+  if (type === "data-editor-update") {
+    return {
+      statusMessage: isComplete ? "Editor updated" : "Updating editor",
+      statusBadge: status,
+      isComplete,
+      previewText: part.data?.markdown,
+      previewIsMarkdown: true,
+    };
+  }
+
+  // data-title-update
+  if (type === "data-title-update") {
+    return {
+      statusMessage: isComplete ? "Title updated" : "Updating title",
+      statusBadge: status,
+      isComplete,
+      previewText: part.data?.title,
+    };
+  }
+
+  // data-tool-reasoning  (only show while NOT complete)
+  if (type === "data-tool-reasoning" && !isComplete) {
+    return {
+      statusMessage: isComplete ? `${label} complete` : `Processing`,
+      statusBadge: status,
+      isComplete,
+      previewText: part.data?.text,
+      previewIsMarkdown: true,
+    };
+  }
+
+  // data-tool-output  (only show when complete)
+  if (type === "data-tool-output" && isComplete) {
+    return {
+      statusMessage: "Task completed",
+      statusBadge: status,
+      isComplete: true,
+      previewText: part.data?.text,
+      previewIsMarkdown: true,
+    };
+  }
+
+  return null; // not a tool-card part
+}
+
+/** Reusable status card rendered for every tool / data-* part. */
+function ToolStatusCard({
+  index,
+  props,
+}: {
+  index: number;
+  props: ToolCardProps;
+}) {
+  return (
+    <div
+      key={index}
+      className={cn(
+        "rounded-md border px-3 py-2 text-sm my-2",
+        props.isComplete
+          ? "border-border bg-white"
+          : "border-border bg-primary/10",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <HugeiconsIcon
+            icon={ToolsIcon}
+            className={cn("size-[16px]", !props.isComplete && "animate-pulse")}
+          />
+          <span className="font-medium">{props.statusMessage}</span>
+        </div>
+        <span className="text-xs capitalize text-muted-foreground">
+          {props.statusBadge}
+        </span>
+      </div>
+      {props.previewText && (
+        <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
+          {props.previewIsMarkdown ? (
+            <Markdown className="text-sm">{props.previewText}</Markdown>
+          ) : (
+            props.previewText
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Message bubble component ---
+
 function MessageBubble({
   message,
   parts,
@@ -27,64 +156,64 @@ function MessageBubble({
 
   // Filter parts to only show relevant current state
   const filteredParts = useMemo(() => {
-    // Check what parts exist to determine visibility
     const hasReasoning = parts.some((p) => p.type === "reasoning");
-    const hasToolCall = parts.some((p) => p.type === "tool-get_weather_tool");
+    // Dynamic: match any tool-* invocation part
+    const hasToolCall = parts.some((p) => p.type.startsWith("tool-"));
     const hasDataToolReasoning = parts.some(
       (p) => p.type === "data-tool-reasoning",
     );
     const hasDataToolOutput = parts.some((p) => p.type === "data-tool-output");
+    const hasEditorUpdate = parts.some((p) => p.type === "data-editor-update");
+    const hasTitleUpdate = parts.some((p) => p.type === "data-title-update");
     const hasFinalText = parts.some((p) => p.type === "text" && p.text?.trim());
 
-    // Get the latest output part specifically (for final weather report)
-    const latestOutputPart = [...parts]
-      .reverse()
-      .find((p) => p.type === "data-tool-output");
+    const hasAnyActivity =
+      hasReasoning ||
+      hasToolCall ||
+      hasDataToolReasoning ||
+      hasDataToolOutput ||
+      hasEditorUpdate ||
+      hasTitleUpdate ||
+      hasFinalText;
 
-    // Get latest reasoning part
-    const latestReasoningPart = [...parts]
-      .reverse()
-      .find((p) => p.type === "data-tool-reasoning");
+    // Latest-part helpers — only show the most recent of each data-* category
+    const latestOf = (type: string) =>
+      [...parts].reverse().find((p) => p.type === type);
+
+    const latestOutputPart = latestOf("data-tool-output");
+    const latestReasoningPart = latestOf("data-tool-reasoning");
+    const latestEditorUpdatePart = latestOf("data-editor-update");
+    const latestTitleUpdatePart = latestOf("data-title-update");
 
     return parts.filter((part) => {
-      // Hide step-start once we have reasoning or anything else
-      if (part.type === "step-start") {
-        return (
-          !hasReasoning &&
-          !hasToolCall &&
-          !hasDataToolReasoning &&
-          !hasDataToolOutput &&
-          !hasFinalText
-        );
-      }
+      // Hide step-start once we have any real content
+      if (part.type === "step-start") return !hasAnyActivity;
 
-      // Always show reasoning (it collapses itself)
-      if (part.type === "reasoning") {
-        return true;
-      }
+      // Always show model reasoning (it collapses itself)
+      if (part.type === "reasoning") return true;
 
-      // Hide tool-call once we have data parts
-      if (part.type === "tool-get_weather_tool") {
+      // Hide tool-invocation parts once we have data parts
+      if (part.type.startsWith("tool-")) {
         return !hasDataToolReasoning && !hasDataToolOutput;
       }
 
-      // Show latest reasoning part (only if output hasn't started yet)
+      // Show latest reasoning part only if output hasn't started
       if (part.type === "data-tool-reasoning") {
-        // If we have output with content, hide reasoning
-        const hasOutputWithContent = latestOutputPart?.data?.text?.trim();
-        if (hasOutputWithContent) return false;
+        if (latestOutputPart?.data?.text?.trim()) return false;
         return part === latestReasoningPart;
       }
 
-      // Show latest output part
-      if (part.type === "data-tool-output") {
-        return part === latestOutputPart;
-      }
+      // Show latest output part only
+      if (part.type === "data-tool-output") return part === latestOutputPart;
+
+      // Show latest editor/title update only
+      if (part.type === "data-editor-update")
+        return part === latestEditorUpdatePart;
+      if (part.type === "data-title-update")
+        return part === latestTitleUpdatePart;
 
       // Show text only if it has content
-      if (part.type === "text") {
-        return Boolean(part.text?.trim());
-      }
+      if (part.type === "text") return Boolean(part.text?.trim());
 
       return false;
     });
@@ -103,6 +232,7 @@ function MessageBubble({
         }`}
       >
         {filteredParts.map((part, i) => {
+          // Model reasoning (collapsible)
           if (part.type === "reasoning") {
             return (
               <Reasoning
@@ -116,82 +246,14 @@ function MessageBubble({
             );
           }
 
-          // Tool status display - handles all tool-related parts
-          if (
-            (part.type === "data-tool-reasoning" &&
-              part?.data?.status !== "complete") ||
-            (part.type === "data-tool-output" &&
-              part.data.status === "complete")
-          ) {
-            // Determine which status to show and what text to display
-            let statusMessage = "";
-            let statusBadge = "";
-            let isComplete = false;
-            let toolText = "";
-
-            if (part.type === "tool-get_weather_tool") {
-              statusMessage = "Running weather tool";
-              statusBadge = "calling";
-            } else if (part.type === "data-tool-reasoning") {
-              statusMessage = "Processing weather data";
-              const reasoningStatus = part.data?.status;
-              statusBadge = reasoningStatus || "processing";
-              toolText = part.data?.text || "";
-
-              if (reasoningStatus === "streaming") {
-                statusMessage = "Processing Weather Data";
-              } else if (reasoningStatus === "complete") {
-                statusMessage = "Processing Complete";
-              }
-            }
-            if (
-              part.type === "data-tool-output" &&
-              part.data?.status === "complete"
-            ) {
-              statusMessage = "Weather Job Completed";
-              isComplete = true;
-            }
-
-            return (
-              <div
-                key={i}
-                className={cn(
-                  "rounded-md border px-3 py-2 text-sm my-2",
-                  isComplete
-                    ? "border-green-500/50 bg-green-500/10"
-                    : "border-blue-500/50 bg-blue-500/10",
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <HugeiconsIcon
-                      icon={ToolsIcon}
-                      className={cn(
-                        "size-[16px]",
-                        !isComplete && "animate-pulse",
-                      )}
-                    />
-                    <span className="font-medium">{statusMessage}</span>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-xs capitalize",
-                      isComplete ? "text-green-500" : "text-blue-500",
-                    )}
-                  >
-                    {statusBadge}
-                  </span>
-                </div>
-                {toolText && (
-                  <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
-                    <Markdown className="text-sm">{toolText}</Markdown>
-                  </div>
-                )}
-              </div>
-            );
+          // Dynamic tool/status card — handles tool-*, data-editor-update,
+          // data-title-update, data-tool-reasoning, data-tool-output
+          const cardProps = getToolCardProps(part);
+          if (cardProps) {
+            return <ToolStatusCard key={i} index={i} props={cardProps} />;
           }
 
-          // 5️⃣ Final text - StreamingMessage with the text
+          // Final text response
           if (part.type === "text") {
             return (
               <div className="whitespace-pre-wrap" key={i}>
@@ -211,21 +273,45 @@ function MessageBubble({
   );
 }
 
-function AgentSidebar() {
+type AIStreamStatus = "processing" | "streaming" | "complete";
+
+type EditorUpdatePayload = {
+  id?: string;
+  status: AIStreamStatus;
+  markdown: string;
+};
+
+type TitleUpdatePayload = {
+  id?: string;
+  status: AIStreamStatus;
+  title: string;
+};
+
+function AgentSidebar({
+  editorContent,
+  editorMarkdown,
+  onEditorUpdate,
+  onTitleUpdate,
+}: {
+  editorContent: string;
+  editorMarkdown: string;
+  onEditorUpdate?: (payload: EditorUpdatePayload) => void;
+  onTitleUpdate?: (payload: TitleUpdatePayload) => void;
+}) {
   const [viewHistory, setViewHistory] = useState(false);
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
-    // transport: new DefaultChatTransport({
-    //   api: "/api/test",
-    // }),
     onError: (error) => {
       console.error("Error sending message:", error);
     },
   });
+
   const [isThinking, setIsThinking] = useState(false);
 
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastEditorUpdateRef = useRef<EditorUpdatePayload | null>(null);
+  const lastTitleUpdateRef = useRef<TitleUpdatePayload | null>(null);
 
   // Auto-scroll to bottom when messages change - use a ref-based approach
   useEffect(() => {
@@ -237,6 +323,100 @@ function AgentSidebar() {
     return () => clearTimeout(timeoutId);
   }, [messages.length]); // Only depend on length, not the entire messages array
 
+  useEffect(() => {
+    if (!onEditorUpdate) return;
+
+    let latestPart: {
+      part: any;
+      messageId: string;
+    } | null = null;
+
+    for (let mIndex = messages.length - 1; mIndex >= 0; mIndex -= 1) {
+      const message = messages[mIndex];
+      for (let pIndex = message.parts.length - 1; pIndex >= 0; pIndex -= 1) {
+        const part = message.parts[pIndex];
+        if (part.type === "data-editor-update") {
+          latestPart = { part, messageId: message.id };
+          break;
+        }
+      }
+      if (latestPart) break;
+    }
+
+    if (!latestPart) return;
+
+    const updateId = latestPart.part.id ?? latestPart.messageId;
+    const status = (latestPart.part.data?.status ??
+      "processing") as AIStreamStatus;
+    const markdown = latestPart.part.data?.markdown ?? "";
+
+    const nextPayload: EditorUpdatePayload = {
+      id: updateId,
+      status,
+      markdown,
+    };
+
+    const lastPayload = lastEditorUpdateRef.current;
+    if (
+      lastPayload &&
+      lastPayload.id === nextPayload.id &&
+      lastPayload.status === nextPayload.status &&
+      lastPayload.markdown === nextPayload.markdown
+    ) {
+      return;
+    }
+
+    lastEditorUpdateRef.current = nextPayload;
+    onEditorUpdate(nextPayload);
+  }, [messages, onEditorUpdate]);
+
+  useEffect(() => {
+    if (!onTitleUpdate) return;
+
+    let latestPart: {
+      part: any;
+      messageId: string;
+    } | null = null;
+
+    for (let mIndex = messages.length - 1; mIndex >= 0; mIndex -= 1) {
+      const message = messages[mIndex];
+      for (let pIndex = message.parts.length - 1; pIndex >= 0; pIndex -= 1) {
+        const part = message.parts[pIndex];
+        if (part.type === "data-title-update") {
+          latestPart = { part, messageId: message.id };
+          break;
+        }
+      }
+      if (latestPart) break;
+    }
+
+    if (!latestPart) return;
+
+    const updateId = latestPart.part.id ?? latestPart.messageId;
+    const status = (latestPart.part.data?.status ??
+      "processing") as AIStreamStatus;
+    const title = latestPart.part.data?.title ?? "";
+
+    const nextPayload: TitleUpdatePayload = {
+      id: updateId,
+      status,
+      title,
+    };
+
+    const lastPayload = lastTitleUpdateRef.current;
+    if (
+      lastPayload &&
+      lastPayload.id === nextPayload.id &&
+      lastPayload.status === nextPayload.status &&
+      lastPayload.title === nextPayload.title
+    ) {
+      return;
+    }
+
+    lastTitleUpdateRef.current = nextPayload;
+    onTitleUpdate(nextPayload);
+  }, [messages, onTitleUpdate]);
+
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     // if (!inputValue.trim() || isLoading) return;
@@ -247,7 +427,10 @@ function AgentSidebar() {
 
       // Send message to API - useChat will handle adding it to messages
       setIsThinking(true);
-      sendMessage({ text, metadata: { userMessage: text } });
+      sendMessage({
+        text,
+        metadata: { userMessage: text, editorContent, editorMarkdown },
+      });
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -255,21 +438,22 @@ function AgentSidebar() {
 
   // console.log(messages);
 
-  // Memoize isLoading to prevent recalculation on every render
-  const isLoading = useMemo(
-    () =>
-      messages.some((message) => {
-        if (message.role !== "assistant") return false;
-        return message.parts.some((part, index) => {
-          console.log(part.type, index);
+  // Taqui yrr don't remove this code
+  useEffect(() => {
+    if (!isThinking) return;
 
-          if (part.type === "step-start" && index === 0) {
-            setIsThinking(false);
-          }
-        });
-      }),
-    [messages],
-  ); // Only recalculate when message count changes
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      for (let index = 0; index < message.parts.length; index += 1) {
+        const part = message.parts[index];
+        if (part.type === "step-start" && index === 0) {
+          setIsThinking(false);
+          return;
+        }
+      }
+    }
+  }, [messages, isThinking]);
+  console.log({ messages });
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -328,13 +512,13 @@ function AgentSidebar() {
             )}
             {isThinking && (
               <div className="mb-4 flex justify-start">
-                <div className="max-w-[85%] rounded-lg p-3 bg-muted text-foreground">
+                <div className="max-w-[85%] rounded-lg p-3 bg-transparent text-foreground">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
                     <HugeiconsIcon
                       icon={Brain01FreeIcons}
                       className="size-[18px] animate-pulse"
                     />
-                    <span>Thinking...</span>
+                    <span>Thinking</span>
                   </div>
                 </div>
               </div>
