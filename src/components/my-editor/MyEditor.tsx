@@ -8,7 +8,13 @@ import React, {
   useState,
 } from "react";
 import { nodes as basicNodes, marks } from "./myEditorSchema";
-import { DOMParser, Fragment, Schema, Slice, Node as PMNode } from "prosemirror-model";
+import {
+  DOMParser,
+  Fragment,
+  Schema,
+  Slice,
+  Node as PMNode,
+} from "prosemirror-model";
 import { orderedList, bulletList, listItem } from "prosemirror-schema-list";
 import { MyEditorToolbar } from "./MyEditorToolbar";
 import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
@@ -67,11 +73,9 @@ const MyEditor = forwardRef<
   const [isFocused, setIsFocused] = useState(false);
   const lastEditorValueRef = useRef<string | null>(null);
   const isApplyingExternalUpdateRef = useRef(false);
+  const pendingExternalValueRef = useRef<string | null>(null);
 
-  const buildAIChangeTransaction = (
-    changes: AIChange[],
-    baseDoc?: PMNode,
-  ) => {
+  const buildAIChangeTransaction = (changes: AIChange[], baseDoc?: PMNode) => {
     const view = viewRef.current;
     if (!view && !baseDoc) {
       console.warn("applyAIChanges: editor view not ready");
@@ -119,8 +123,7 @@ const MyEditor = forwardRef<
           // clamp index to last child
           const clampedIdx = Math.min(idx, childCount) - 1;
           pos = 0;
-          for (let i = 0; i <= clampedIdx; i++)
-            pos += doc.child(i).nodeSize;
+          for (let i = 0; i <= clampedIdx; i++) pos += doc.child(i).nodeSize;
         }
 
         const html = marked.parse(change.content) as string;
@@ -139,6 +142,45 @@ const MyEditor = forwardRef<
     const temp = document.createElement("div");
     temp.innerHTML = html as string;
     return DOMParser.fromSchema(mySchema).parse(temp);
+  };
+
+  const applyExternalValue = (nextValue: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    if (nextValue === undefined || nextValue === null) return;
+    // Get current editor markdown to compare
+    const currentMarkdown = customMarkdownSerializer.serialize(view.state.doc);
+
+    // Only skip if both the ref AND current editor content match the incoming value
+    if (
+      nextValue === lastEditorValueRef.current &&
+      nextValue === currentMarkdown
+    )
+      return;
+    try {
+      // Convert markdown -> HTML
+      const html = marked.parse(nextValue);
+      // Parse HTML -> ProseMirror doc
+      const parser = DOMParser.fromSchema(mySchema);
+      const temp = document.createElement("div");
+      temp.innerHTML = html as string;
+      const newDoc = parser.parse(temp);
+
+      // Replace the editor content
+      isApplyingExternalUpdateRef.current = true;
+      const tr = view.state.tr.replaceWith(
+        0,
+        view.state.doc.content.size,
+        newDoc.content,
+      );
+
+      view.dispatch(tr);
+      lastEditorValueRef.current = nextValue;
+    } catch (err) {
+      console.error("Markdown parsing failed:", err);
+    } finally {
+      isApplyingExternalUpdateRef.current = false;
+    }
   };
 
   // ── Expose applyAIChanges to parent via ref ──
@@ -161,7 +203,10 @@ const MyEditor = forwardRef<
 
         return customMarkdownSerializer.serialize(tr.doc);
       },
-      getMarkdownAfterAIChangesFromBase(baseMarkdown: string, changes: AIChange[]) {
+      getMarkdownAfterAIChangesFromBase(
+        baseMarkdown: string,
+        changes: AIChange[],
+      ) {
         if (!baseMarkdown) return null;
         const baseDoc = parseMarkdownToDoc(baseMarkdown);
         const tr = buildAIChangeTransaction(changes, baseDoc);
@@ -329,6 +374,10 @@ const MyEditor = forwardRef<
     });
 
     viewRef.current = view;
+    if (pendingExternalValueRef.current !== null) {
+      applyExternalValue(pendingExternalValueRef.current);
+      pendingExternalValueRef.current = null;
+    }
 
     return () => {
       if (viewRef.current) {
@@ -337,34 +386,13 @@ const MyEditor = forwardRef<
     };
   }, []);
   useEffect(() => {
-    if (!viewRef.current) return;
     if (value === undefined || value === null) return;
-    if (value === lastEditorValueRef.current) return;
-    try {
-      // Convert markdown -> HTML
-      const html = marked.parse(value);
-      // Parse HTML -> ProseMirror doc
-      const parser = DOMParser.fromSchema(mySchema);
-      const temp = document.createElement("div");
-      temp.innerHTML = html as string;
-      const newDoc = parser.parse(temp);
-
-      // Replace the editor content
-      const view = viewRef.current;
-      isApplyingExternalUpdateRef.current = true;
-      const tr = view.state.tr.replaceWith(
-        0,
-        view.state.doc.content.size,
-        newDoc.content,
-      );
-
-      view.dispatch(tr);
-      lastEditorValueRef.current = value;
-      isApplyingExternalUpdateRef.current = false;
-    } catch (err) {
-      isApplyingExternalUpdateRef.current = false;
-      console.error("Markdown parsing failed:", err);
+    if (!viewRef.current) {
+      pendingExternalValueRef.current = value;
+      return;
     }
+    pendingExternalValueRef.current = null;
+    applyExternalValue(value);
   }, [value]);
   useEffect(() => {
     if (!viewRef.current) return;

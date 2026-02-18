@@ -26,11 +26,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryState, parseAsString } from "nuqs";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-
+import {
+  Add01Icon,
+  Add02Icon,
+  ArrowRight01Icon,
+  ArrowRight03Icon,
+  CommentAdd01Icon,
+  Edit03Icon,
+  File02Icon,
+  PlusSignIcon,
+  QuillWrite02Icon,
+  Settings02Icon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import type { IconSvgElement } from "@hugeicons/react";
 type NavItem = {
   title: string;
   url: string;
-  icon: (props: QuillWrite02Props) => React.ReactElement;
+  icon: IconSvgElement;
   isActive: boolean;
   items: { title: string; url: string; isActive: boolean }[];
 };
@@ -47,7 +60,7 @@ function UserSidebar() {
     {
       title: "Write",
       url: "/write",
-      icon: QuillWrite02,
+      icon: QuillWrite02Icon,
       isActive: true,
       items: [],
     },
@@ -90,9 +103,10 @@ function UserSidebar() {
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton tooltip={item.title}>
-                        {item.icon && <item.icon size="18" />}
+                        {item.icon && <HugeiconsIcon icon={item.icon}  size="18" />}
                         <span className="font-medium">{item.title}</span>
-                        <ArrowRightIcon
+                        <HugeiconsIcon
+                          icon={ArrowRight01Icon}
                           size="18"
                           className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
                         />
@@ -110,13 +124,16 @@ function UserSidebar() {
                         ) : (
                           <>
                             <SidebarMenuSubItem>
-                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90" >
+                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90">
                                 <Link
                                   href={"/write"}
                                   className="flex items-center gap-2"
-                                  
                                 >
-                                  <PlusIcon size="16" className="mr-1 " />
+                                  <HugeiconsIcon
+                                    icon={PlusSignIcon}
+                                    size="16"
+                                    className="mr-1 "
+                                  />
                                   <span className="line-clamp-1 leading-tight">
                                     Create new
                                   </span>
@@ -134,7 +151,13 @@ function UserSidebar() {
                                   }
                                 >
                                   <Link href={subItem.url}>
-                                    <PageIcon size="18" className="mr-1" />
+                                    <div>
+                                      <HugeiconsIcon
+                                        icon={File02Icon}
+                                        size="18"
+                                        className="mr-1"
+                                      />
+                                    </div>
                                     <span className="line-clamp-1 leading-tight">
                                       {subItem.title}
                                     </span>
@@ -155,7 +178,7 @@ function UserSidebar() {
                   isActive={url === "/settings"}
                 >
                   <Link href="/settings" className="flex gap-2">
-                    <SettingIcon size="18" />
+                    <HugeiconsIcon icon={Settings02Icon}  size="18" />
                     <span className="line-clamp-1 leading-tight font-medium">
                       Settings
                     </span>
@@ -168,7 +191,7 @@ function UserSidebar() {
                   isActive={url === "/feedback"}
                 >
                   <Link href="/feedback" className="flex gap-2">
-                    <FeedbackIcon size="18" />
+                    <HugeiconsIcon icon={CommentAdd01Icon}  size="18" />
                     <span className="line-clamp-1 leading-tight font-medium">
                       Feedback
                     </span>
@@ -325,7 +348,7 @@ type ChatFeedback01Props = {
   className?: string;
 };
 
-const FeedbackIcon = ({ size,className }: ChatFeedback01Props) => (
+const FeedbackIcon = ({ size, className }: ChatFeedback01Props) => (
   <svg
     width={size}
     height={size}

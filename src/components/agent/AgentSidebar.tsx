@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { PlusIcon } from "../UserSidebar";
-import { HistoryIcon, MenuIcon } from "../customIcons";
 import { useChat } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
 import { MyUIMessage } from "@/app/api/chat/route";
@@ -12,7 +11,7 @@ import {
 } from "../ai-elements/reasoning";
 import { StreamingMessage } from "../ai-elements/streaming-message";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Brain01FreeIcons, ToolsIcon } from "@hugeicons/core-free-icons";
+import { Brain01FreeIcons, Clock04Icon, Menu01Icon, ToolsIcon } from "@hugeicons/core-free-icons";
 import { Markdown } from "../ui/markdown";
 
 // --- Helpers for dynamic tool card rendering ---
@@ -246,7 +245,7 @@ function MessageBubble({
             );
           }
 
-          // Dynamic tool/status card — handles tool-*, data-editor-update,
+     
           // data-title-update, data-tool-reasoning, data-tool-output
           const cardProps = getToolCardProps(part);
           if (cardProps) {
@@ -291,10 +290,11 @@ function AgentSidebar({
   editorContent,
   editorMarkdown,
   onEditorUpdate,
-  onTitleUpdate,
+  onTitleUpdate,editorHeading
 }: {
   editorContent: string;
   editorMarkdown: string;
+  editorHeading: string;
   onEditorUpdate?: (payload: EditorUpdatePayload) => void;
   onTitleUpdate?: (payload: TitleUpdatePayload) => void;
 }) {
@@ -429,14 +429,13 @@ function AgentSidebar({
       setIsThinking(true);
       sendMessage({
         text,
-        metadata: { userMessage: text, editorContent, editorMarkdown },
+        metadata: { userMessage: text, editorContent, editorMarkdown,editorHeading },
       });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
 
-  // console.log(messages);
 
   // Taqui yrr don't remove this code
   useEffect(() => {
@@ -477,10 +476,10 @@ function AgentSidebar({
             className="data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
             onClick={() => setViewHistory(!viewHistory)}
           >
-            <HistoryIcon size="20" />
+          <HugeiconsIcon icon={Clock04Icon} size="20" />
           </Button>
           <Button variant={"ghost"} size="icon-sm">
-            <MenuIcon size="20" />
+           <HugeiconsIcon icon={Menu01Icon} size="20" />
           </Button>
         </div>
       </div>

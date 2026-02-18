@@ -24,7 +24,7 @@ import {
   Undo,
 } from "./editorIcons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Loading, Loading01FreeIcons, Loading01Icon, Loading02Icon, Loading03Icon } from "@hugeicons/core-free-icons";
+import { Loading03Icon, TextBoldIcon } from "@hugeicons/core-free-icons";
 
 interface TestingToolbarProps {
   viewRef: React.MutableRefObject<EditorView | null>;
@@ -355,7 +355,7 @@ export function MyEditorToolbar({
             title="Bold (Ctrl+B)"
             disabled={isDisabled}
           >
-            <BoldSolid size="16" />
+            <HugeiconsIcon icon={TextBoldIcon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}

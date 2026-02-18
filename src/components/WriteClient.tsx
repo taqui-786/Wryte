@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import WriteClientSkeleton from "./ui/WriteClientSkeleton";
-import { ClockIcon, LoadingSpinnerIcon, MenuIcon } from "./customIcons";
 import { Button } from "./ui/button";
 import { DeleteIcon } from "./my-editor/editorIcons";
 import { Input } from "./ui/input";
@@ -31,6 +30,8 @@ import {
 import { ScrollArea } from "./ui/scroll-area";
 import { marked } from "marked";
 import z from "zod";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Clock04Icon, Loading03Icon, MoreVerticalSquare01Icon } from "@hugeicons/core-free-icons";
 
 const ChangeSchema = z.object({
   line: z.number().int().positive(),
@@ -203,8 +204,10 @@ function WriteClient() {
   const [isAIApplying, setIsAIApplying] = useState(false);
   const saveTimeoutRef = useRef<number | null>(null);
   const latestHeadingRef = useRef("");
+  const lastSavedHeadingRef = useRef("");
   const [open, setOpen] = useState(false);
   const latestValueRef = useRef("");
+  const lastSavedValueRef = useRef("");
   const isInitialLoadRef = useRef(false);
   const editorRef = useRef<MyEditorHandle>(null);
   const isAIApplyingRef = useRef(false);
@@ -221,14 +224,23 @@ function WriteClient() {
     queryFn: async () => await getDocsById(docs as string),
     staleTime: 1000 * 60 * 5,
   });
+  const activeDoc = Array.isArray(data) ? data[0] : data;
+  const hasActiveDoc = Boolean(docs && activeDoc?.id);
 
   useEffect(() => {
-    if (docs && data && data.length > 0) {
+    if (docs && activeDoc) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      
       isInitialLoadRef.current = true;
-      setHeading(data[0].title);
-      setValue(data[0].content);
-      latestHeadingRef.current = data[0].title;
-      latestValueRef.current = data[0].content;
+      setHeading(activeDoc.title ?? "");
+      setValue(activeDoc.content ?? "");
+      latestHeadingRef.current = activeDoc.title ?? "";
+      latestValueRef.current = activeDoc.content ?? "";
+      lastSavedHeadingRef.current = activeDoc.title ?? "";
+      lastSavedValueRef.current = activeDoc.content ?? "";
       // Allow changes after initial load completes
       setTimeout(() => {
         isInitialLoadRef.current = false;
@@ -238,6 +250,8 @@ function WriteClient() {
       setValue("");
       latestHeadingRef.current = "";
       latestValueRef.current = "";
+      lastSavedHeadingRef.current = "";
+      lastSavedValueRef.current = "";
     }
   }, [data, docs]);
 
@@ -309,6 +323,13 @@ function WriteClient() {
       clearTimeout(saveTimeoutRef.current);
     }
 
+    if (
+      nextHeading === lastSavedHeadingRef.current &&
+      nextValue === lastSavedValueRef.current
+    ) {
+      return;
+    }
+
     saveTimeoutRef.current = window.setTimeout(async () => {
       setIsAutoSaving(true);
 
@@ -318,6 +339,8 @@ function WriteClient() {
           title: nextHeading,
           content: nextValue,
         });
+        lastSavedHeadingRef.current = nextHeading;
+        lastSavedValueRef.current = nextValue;
       } catch (err) {
         console.error(err);
       } finally {
@@ -388,14 +411,21 @@ function WriteClient() {
   }, []);
   const updateDocHandler = async () => {
     if (docs) {
-      await updateDoc({
-        docId: docs as string,
-        title: heading,
-        content: value,
-      });
+      try {
+        await updateDoc({
+          docId: docs as string,
+          title: heading,
+          content: value,
+        });
+        lastSavedHeadingRef.current = heading;
+        lastSavedValueRef.current = value;
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
   const handleChange = (content: string) => {
+    if(content === value) return;
     setValue(content);
     latestValueRef.current = content;
 
@@ -431,6 +461,7 @@ function WriteClient() {
     startAIStream(
       nextMarkdown,
       (chunk) => {
+      
         setValue(chunk);
         latestValueRef.current = chunk;
       },
@@ -523,11 +554,7 @@ function WriteClient() {
     endEditorStream(id);
   };
 
-  const handleAITitleUpdate = ({
-    id,
-    status,
-    title,
-  }: TitleUpdatePayload) => {
+  const handleAITitleUpdate = ({ id, status, title }: TitleUpdatePayload) => {
     if (status === "processing") {
       beginTitleStream(id);
       return;
@@ -556,9 +583,9 @@ function WriteClient() {
   if (isLoading) {
     return <WriteClientSkeleton />;
   }
-  console.log(
-    addDataLineAttributes(marked.parse(latestValueRef.current) as string),
-  );
+  // console.log(
+  //   addDataLineAttributes(marked.parse(latestValueRef.current) as string),
+  // );
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
@@ -568,12 +595,14 @@ function WriteClient() {
             <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
               <div className="p-2 flex items-center justify-between">
                 <div className="">
-                  {data?.[0]?.id && docs ? (
+                  {hasActiveDoc ? (
                     <div className="flex gap-2 items-center text-muted-foreground">
-                      <ClockIcon size="20" />
+                      <HugeiconsIcon icon={Clock04Icon} size="20" />
                       <span className="text-sm font-medium">
                         Last edited{" "}
-                        {formatDistanceToNow(new Date(data?.[0]?.updatedAt))}{" "}
+                        {activeDoc?.updatedAt
+                          ? formatDistanceToNow(new Date(activeDoc.updatedAt))
+                          : "just now"}{" "}
                         ago
                       </span>
                     </div>
@@ -582,7 +611,7 @@ function WriteClient() {
                   )}
                 </div>
                 <div className="">
-                  {data?.[0]?.id && docs ? (
+                  {hasActiveDoc ? (
                     <div className="flex items-center justify-center gap-2">
                       <Button
                         disabled={isUpdatingDoc}
@@ -591,19 +620,13 @@ function WriteClient() {
                       >
                         {isAutoSaving ? (
                           <>
-                            Auto Saving{" "}
-                            <LoadingSpinnerIcon
-                              size="18"
-                              className="animate-spin"
-                            />
+                            <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
+                              Auto Saving
                           </>
                         ) : isUpdatingDoc ? (
                           <>
-                            Saving
-                            <LoadingSpinnerIcon
-                              size="18"
-                              className="animate-spin"
-                            />
+                            <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
+                              Saving
                           </>
                         ) : (
                           "Save Changes"
@@ -612,11 +635,10 @@ function WriteClient() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button size={"icon"} variant={"outline"}>
-                            <MenuIcon size={"20"} />
+                           <HugeiconsIcon icon={MoreVerticalSquare01Icon} size="20" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-         
                           <DropdownMenuItem
                             variant="destructive"
                             onClick={() => setOpen(true)}
@@ -631,11 +653,8 @@ function WriteClient() {
                     <Button disabled={isPending} onClick={handleCreatePost}>
                       {isPending ? (
                         <>
-                          Creating
-                          <LoadingSpinnerIcon
-                            size="18"
-                            className="animate-spin"
-                          />
+                          <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
+                          Creating...
                         </>
                       ) : (
                         "Create Page"
@@ -677,6 +696,7 @@ function WriteClient() {
           onTitleUpdate={(nextTitle) => {
             handleAITitleUpdate(nextTitle);
           }}
+          editorHeading={heading}
         />
       </ResizablePanel>
     </ResizablePanelGroup>
