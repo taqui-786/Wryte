@@ -82,8 +82,15 @@ const MyEditor = forwardRef<
       return null;
     }
 
-    // Sort changes by line DESC so earlier positions stay valid
-    const sorted = [...changes].sort((a, b) => b.line - a.line);
+    // Apply delete/replace from bottom to top, then inserts from top to bottom
+    const sorted = [
+      ...changes
+        .filter((c) => c.type !== "insert")
+        .sort((a, b) => b.line - a.line),
+      ...changes
+        .filter((c) => c.type === "insert")
+        .sort((a, b) => a.line - b.line),
+    ];
 
     let tr = baseDoc
       ? EditorState.create({ doc: baseDoc, schema: mySchema }).tr

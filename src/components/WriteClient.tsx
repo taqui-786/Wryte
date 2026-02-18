@@ -179,19 +179,85 @@ function safeParseChangesFromStream(input: string): AIChange[] {
 
 const looksLikeJson = (text: string) => /^[\[{]/.test(text.trim());
 
+const isListItemLine = (line: string) =>
+  /^\s*(?:[-*+]\s+|\d+\.\s+)/.test(line.trim());
+
+const dedupeChanges = (changes: AIChange[]) => {
+  const seen = new Set<string>();
+  const result: AIChange[] = [];
+  for (const change of changes) {
+    const key = `${change.line}|${change.type}|${change.content}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(change);
+  }
+  return result;
+};
+
+const buildMarkdownFromInsertChanges = (changes: AIChange[]) => {
+  const sorted = [...changes].sort((a, b) => a.line - b.line);
+  const parts: string[] = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    const content = sorted[i].content ?? "";
+    if (i === 0) {
+      parts.push(content);
+      continue;
+    }
+
+    const prev = sorted[i - 1].content ?? "";
+    const prevIsList = isListItemLine(prev);
+    const currIsList = isListItemLine(content);
+    const joiner = prevIsList && currIsList ? "\n" : "\n\n";
+    parts.push(joiner, content);
+  }
+  return parts.join("");
+};
+
+const isSequentialInsertDocument = (changes: AIChange[]) => {
+  if (changes.length === 0) return false;
+  if (!changes.every((c) => c.type === "insert")) return false;
+  const sorted = [...changes].sort((a, b) => a.line - b.line);
+  for (let i = 0; i < sorted.length; i += 1) {
+    if (sorted[i].line !== i + 1) return false;
+  }
+  return true;
+};
+
 /**
  * Adds data-line="N" attributes to every top-level block element in an HTML string.
  * Only targets top-level block tags (p, h1-h6, blockquote, pre, ul, ol, hr, div, table).
  */
 function addDataLineAttributes(html: string): string {
+  if (!html) return html;
+
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  const blockTags = new Set([
+    "P",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "BLOCKQUOTE",
+    "PRE",
+    "UL",
+    "OL",
+    "HR",
+    "DIV",
+    "TABLE",
+  ]);
+
   let lineNumber = 0;
-  return html.replace(
-    /(<(?:p|h[1-6]|blockquote|pre|ul|ol|hr|div|table))([\s>])/gi,
-    (_match, tag, after) => {
-      lineNumber++;
-      return `${tag} data-line="${lineNumber}"${after}`;
-    },
-  );
+  Array.from(container.children).forEach((el) => {
+    if (!blockTags.has(el.tagName)) return;
+    lineNumber += 1;
+    el.setAttribute("data-line", String(lineNumber));
+  });
+
+  return container.innerHTML;
 }
 
 function WriteClient() {
@@ -479,8 +545,12 @@ function WriteClient() {
     aiOutput: string,
     baseMarkdown?: string | null,
   ) => {
-    const changes = safeParseChangesFromStream(aiOutput);
+    const changes = dedupeChanges(safeParseChangesFromStream(aiOutput));
     if (changes.length === 0 || !editorRef.current) return null;
+
+    if (isSequentialInsertDocument(changes)) {
+      return buildMarkdownFromInsertChanges(changes);
+    }
 
     if (baseMarkdown) {
       return editorRef.current.getMarkdownAfterAIChangesFromBase(

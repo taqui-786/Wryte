@@ -161,13 +161,22 @@ export const editorWriteTool = ({
       });
 
       const contextBlocks: string[] = [];
-      if (editorMarkdown?.trim()) {
+      const hasHtml = Boolean(editorContent?.trim());
+      const hasMarkdown = Boolean(editorMarkdown?.trim());
+
+      if (hasHtml) {
         contextBlocks.push(
-          `Current document (Markdown):\n${editorMarkdown.trim()}`,
+          `Current document (HTML with data-line attributes):\n${editorContent?.trim()}`,
         );
-      } else if (editorContent?.trim()) {
-        contextBlocks.push(`Current document (HTML):\n${editorContent.trim()}`);
-      } else {
+      }
+
+      if (hasMarkdown) {
+        contextBlocks.push(
+          `Current document (Markdown):\n${editorMarkdown?.trim()}`,
+        );
+      }
+
+      if (!hasHtml && !hasMarkdown) {
         contextBlocks.push("Current document is empty.");
       }
 
@@ -188,8 +197,8 @@ export const editorWriteTool = ({
 You are an expert writing assistant.
 Your job is to modify the document based on the user's instructions.
 Return ONLY the lines that changed.
-INFO: Each paragraph corresponds to a line using its data-line attribute.
-When modifying a paragraph, return its data-line number as "line".
+INFO: Each top-level block corresponds to a line using its data-line attribute in the HTML.
+Use the data-line numbers from the HTML context.
 Rules:
 - Only include lines that were modified.
 - Do not return unchanged lines.
@@ -198,7 +207,7 @@ Rules:
   - "replace" when updating a line,
   - "delete" when removing a line,
   - "insert" when adding a new line.
-- The "content" field must contain the updated HTML content of the line (without the <p data-line=""> wrapper).
+- The "content" field must contain the updated Markdown for that line (no wrapper tags).
         `.trim(),
         prompt: `
 Action: ${action}
