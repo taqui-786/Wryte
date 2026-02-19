@@ -6,25 +6,27 @@ import { undo, redo } from "prosemirror-history";
 import { Button } from "@/components/ui/button";
 import { wrapInList } from "prosemirror-schema-list";
 import EditorLinkPopover from "./EditorLinkPopover";
-import {
-  BoldSolid,
-  BulletListSolid,
-  CodeBlockSolid,
-  CodeSolid,
-  DividerSolid,
-  Heading1Solid,
-  Heading2Solid,
-  Heading3Solid,
-  ItalicsSolid,
-  NumberedListSolid,
-  QuoteLeftSolid,
-  Redo,
-  StrikeThroughSolid,
-  UnderlineSolid,
-  Undo,
-} from "./editorIcons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Loading03Icon, TextBoldIcon } from "@hugeicons/core-free-icons";
+import {
+  CodeIcon,
+  CodeSimpleIcon,
+  CodeSquareIcon,
+  Heading01Icon,
+  Heading02Icon,
+  Heading03Icon,
+  LeftToRightListNumberIcon,
+  Loading03Icon,
+  MinusSignIcon,
+  ParagraphBulletsPoint01Icon,
+  QuoteDownIcon,
+  Redo03Icon,
+  SourceCodeSquareIcon,
+  TextBoldIcon,
+  TextItalicIcon,
+  TextStrikethroughIcon,
+  TextUnderlineIcon,
+  Undo03Icon,
+} from "@hugeicons/core-free-icons";
 
 interface TestingToolbarProps {
   viewRef: React.MutableRefObject<EditorView | null>;
@@ -45,7 +47,7 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.strong)(
         viewRef.current.state,
-        viewRef.current.dispatch
+        viewRef.current.dispatch,
       );
       if (result) {
         viewRef.current.focus();
@@ -60,7 +62,7 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.em)(
         viewRef.current.state,
-        viewRef.current.dispatch
+        viewRef.current.dispatch,
       );
       if (result) {
         viewRef.current.focus();
@@ -75,7 +77,7 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.code)(
         viewRef.current.state,
-        viewRef.current.dispatch
+        viewRef.current.dispatch,
       );
       if (result) {
         viewRef.current.focus();
@@ -97,13 +99,13 @@ export function MyEditorToolbar({
         // If already a code block, toggle to paragraph
         result = setBlockType(paragraphNode)(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       } else {
         // Otherwise, set to code block
         result = setBlockType(codeBlockNode)(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       }
 
@@ -119,7 +121,7 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.underline)(
         viewRef.current.state,
-        viewRef.current.dispatch
+        viewRef.current.dispatch,
       );
       if (result) {
         viewRef.current.focus();
@@ -133,7 +135,7 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const result = toggleMark(mySchema.marks.strike)(
         viewRef.current.state,
-        viewRef.current.dispatch
+        viewRef.current.dispatch,
       );
       if (result) {
         viewRef.current.focus();
@@ -153,16 +155,14 @@ export function MyEditorToolbar({
 
       let result: boolean;
       if (node.type === headingNode && node.attrs.level === level) {
- 
         result = setBlockType(paragraphNode)(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       } else {
-
         result = setBlockType(headingNode, { level })(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       }
 
@@ -198,7 +198,6 @@ export function MyEditorToolbar({
     if (viewRef.current) {
       const { $head } = viewRef.current.state.selection;
 
-    
       let inOrderedList = false;
       for (let d = $head.depth; d > 0; d--) {
         if ($head.node(d).type === mySchema.nodes.ordered_list) {
@@ -209,14 +208,12 @@ export function MyEditorToolbar({
 
       let result: boolean;
       if (inOrderedList) {
-     
         const { liftListItem } = require("prosemirror-schema-list");
         result = liftListItem(mySchema.nodes.list_item)(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       } else {
-   
         const command = wrapInList(mySchema.nodes.ordered_list);
         result = command(viewRef.current.state, viewRef.current.dispatch);
       }
@@ -248,7 +245,7 @@ export function MyEditorToolbar({
         const { liftListItem } = require("prosemirror-schema-list");
         result = liftListItem(mySchema.nodes.list_item)(
           viewRef.current.state,
-          viewRef.current.dispatch
+          viewRef.current.dispatch,
         );
       } else {
         // Otherwise, wrap in bullet list
@@ -298,7 +295,7 @@ export function MyEditorToolbar({
           dispatch(
             state.tr
               .replaceSelectionWith(mySchema.nodes.horizontal_rule.create())
-              .scrollIntoView()
+              .scrollIntoView(),
           );
         }
         return true;
@@ -330,7 +327,7 @@ export function MyEditorToolbar({
             variant={"ghost"}
             disabled={isDisabled}
           >
-            <Undo size={"16"} />
+            <HugeiconsIcon icon={Undo03Icon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -341,7 +338,7 @@ export function MyEditorToolbar({
             title="Redo (Ctrl+Y)"
             disabled={isDisabled}
           >
-            <Redo size={"16"} />
+            <HugeiconsIcon icon={Redo03Icon} size="16" />
           </Button>
         </div>
 
@@ -366,7 +363,7 @@ export function MyEditorToolbar({
             title="Italic (Ctrl+I)"
             disabled={isDisabled}
           >
-            <ItalicsSolid size={"16"} />
+            <HugeiconsIcon icon={TextItalicIcon} size="16" />
           </Button>
 
           <Button
@@ -378,7 +375,7 @@ export function MyEditorToolbar({
             title="underline (Ctrl+`)"
             disabled={isDisabled}
           >
-            <UnderlineSolid size={"16"} />
+            <HugeiconsIcon icon={TextUnderlineIcon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -389,7 +386,7 @@ export function MyEditorToolbar({
             title="strike (Ctrl+`)"
             disabled={isDisabled}
           >
-            <StrikeThroughSolid size={"16"} />
+            <HugeiconsIcon icon={TextStrikethroughIcon} size="16" />
           </Button>
           <EditorLinkPopover
             viewRef={viewRef}
@@ -405,7 +402,7 @@ export function MyEditorToolbar({
             title="Inline Code (Ctrl+`)"
             disabled={isDisabled}
           >
-            <CodeSolid size={"16"} />
+            <HugeiconsIcon icon={CodeSimpleIcon} size="16" />
           </Button>
         </div>
 
@@ -419,7 +416,7 @@ export function MyEditorToolbar({
             title="Heading 1"
             disabled={isDisabled}
           >
-            <Heading1Solid size={"16"} />
+            <HugeiconsIcon icon={Heading01Icon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -430,7 +427,7 @@ export function MyEditorToolbar({
             title="Heading 2"
             disabled={isDisabled}
           >
-            <Heading2Solid size={"16"} />
+            <HugeiconsIcon icon={Heading02Icon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -441,7 +438,7 @@ export function MyEditorToolbar({
             title="Heading 2"
             disabled={isDisabled}
           >
-            <Heading3Solid size={"16"} />
+            <HugeiconsIcon icon={Heading03Icon} size="16" />
           </Button>
         </div>
         <div className="flex gap-1 border-r border-r-border pr-2">
@@ -454,7 +451,7 @@ export function MyEditorToolbar({
             title="Number List"
             disabled={isDisabled}
           >
-            <NumberedListSolid size={"16"} />
+            <HugeiconsIcon icon={LeftToRightListNumberIcon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -465,7 +462,7 @@ export function MyEditorToolbar({
             title="Number List"
             disabled={isDisabled}
           >
-            <BulletListSolid size={"16"} />
+            <HugeiconsIcon icon={ParagraphBulletsPoint01Icon} size="16" />
           </Button>
         </div>
         <div className="flex gap-1 pr-2 ">
@@ -478,7 +475,7 @@ export function MyEditorToolbar({
             title="Inline Code (Ctrl+`)"
             disabled={isDisabled}
           >
-            <CodeBlockSolid size={"16"} />
+            <HugeiconsIcon icon={SourceCodeSquareIcon} size="16" />
           </Button>
 
           <Button
@@ -487,10 +484,10 @@ export function MyEditorToolbar({
             type="button"
             onClick={toggleQuote}
             className={"tool-blockquote"}
-            title="Number List"
+            title="Quote"
             disabled={isDisabled}
           >
-            <QuoteLeftSolid size={"16"} />
+            <HugeiconsIcon icon={QuoteDownIcon} size="16" />
           </Button>
           <Button
             size={"icon-sm"}
@@ -501,7 +498,7 @@ export function MyEditorToolbar({
             title="Number List"
             disabled={isDisabled}
           >
-            <DividerSolid size={"16"} />
+            <HugeiconsIcon icon={MinusSignIcon} size="16" />
           </Button>
         </div>
       </div>

@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { PlusIcon } from "../UserSidebar";
 import { useChat } from "@ai-sdk/react";
 import { cn } from "@/lib/utils";
-import { MyUIMessage } from "@/app/api/chat/route";
+import type { MyUIMessage } from "@/app/api/chat/route";
+import { buildEditorContentFromMarkdown } from "./editor-content";
+import type {
+  EditorUpdatePayload,
+  TitleUpdatePayload,
+} from "./ai-update-types";
 import {
   Reasoning,
   ReasoningContent,
@@ -11,7 +17,12 @@ import {
 } from "../ai-elements/reasoning";
 import { StreamingMessage } from "../ai-elements/streaming-message";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Brain01FreeIcons, Clock04Icon, Menu01Icon, ToolsIcon } from "@hugeicons/core-free-icons";
+import {
+  Brain01FreeIcons,
+  Clock04Icon,
+  Menu01Icon,
+  ToolsIcon,
+} from "@hugeicons/core-free-icons";
 import { Markdown } from "../ui/markdown";
 
 // --- Helpers for dynamic tool card rendering ---
@@ -245,7 +256,6 @@ function MessageBubble({
             );
           }
 
-     
           // data-title-update, data-tool-reasoning, data-tool-output
           const cardProps = getToolCardProps(part);
           if (cardProps) {
@@ -274,25 +284,12 @@ function MessageBubble({
 
 type AIStreamStatus = "processing" | "streaming" | "complete";
 
-type EditorUpdatePayload = {
-  id?: string;
-  status: AIStreamStatus;
-  markdown: string;
-};
-
-type TitleUpdatePayload = {
-  id?: string;
-  status: AIStreamStatus;
-  title: string;
-};
-
 function AgentSidebar({
-  editorContent,
   editorMarkdown,
   onEditorUpdate,
-  onTitleUpdate,editorHeading
+  onTitleUpdate,
+  editorHeading,
 }: {
-  editorContent: string;
   editorMarkdown: string;
   editorHeading: string;
   onEditorUpdate?: (payload: EditorUpdatePayload) => void;
@@ -308,6 +305,10 @@ function AgentSidebar({
   const [isThinking, setIsThinking] = useState(false);
 
   const [inputValue, setInputValue] = useState("");
+  const editorContent = useMemo(
+    () => buildEditorContentFromMarkdown(editorMarkdown),
+    [editorMarkdown],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastEditorUpdateRef = useRef<EditorUpdatePayload | null>(null);
@@ -429,13 +430,17 @@ function AgentSidebar({
       setIsThinking(true);
       sendMessage({
         text,
-        metadata: { userMessage: text, editorContent, editorMarkdown,editorHeading },
+        metadata: {
+          userMessage: text,
+          editorContent,
+          editorMarkdown,
+          editorHeading,
+        },
       });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
-
 
   // Taqui yrr don't remove this code
   useEffect(() => {
@@ -476,10 +481,10 @@ function AgentSidebar({
             className="data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
             onClick={() => setViewHistory(!viewHistory)}
           >
-          <HugeiconsIcon icon={Clock04Icon} size="20" />
+            <HugeiconsIcon icon={Clock04Icon} size="20" />
           </Button>
           <Button variant={"ghost"} size="icon-sm">
-           <HugeiconsIcon icon={Menu01Icon} size="20" />
+            <HugeiconsIcon icon={Menu01Icon} size="20" />
           </Button>
         </div>
       </div>

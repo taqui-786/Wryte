@@ -1,264 +1,41 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
-import { useQueryState, parseAsString } from "nuqs";
-import { useCreateDoc } from "@/lib/queries/createDocQuery";
 import { useQuery } from "@tanstack/react-query";
-import { getDocsById } from "@/lib/serverAction";
+import dynamic from "next/dynamic";
+import { parseAsString, useQueryState } from "nuqs";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useCreateDoc } from "@/lib/queries/createDocQuery";
 import { useUpdateDoc } from "@/lib/queries/updateDocQuery";
-import { formatDistanceToNow } from "date-fns";
+import { getDocsById } from "@/lib/serverAction";
+import AgentSidebarLoading from "./agent/AgentSidebarLoading";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import WriteClientSkeleton from "./ui/WriteClientSkeleton";
-import { Button } from "./ui/button";
-import { DeleteIcon } from "./my-editor/editorIcons";
-import { Input } from "./ui/input";
-import MyEditor, {
-  type AIChange,
-  type MyEditorHandle,
-} from "./my-editor/MyEditor";
+  buildMarkdownFromInsertChanges,
+  dedupeChanges,
+  isSequentialInsertDocument,
+  looksLikeJson,
+  safeParseChangesFromStream,
+} from "./agent/ai-change-utils";
+import type {
+  EditorUpdatePayload,
+  TitleUpdatePayload,
+} from "./agent/ai-update-types";
+import WriteClientActions from "./agent/WriteClientActions";
 import DeletePageDailog from "./DeletePageDailog";
-import AgentSidebar from "./agent/AgentSidebar";
+import MyEditor, { type MyEditorHandle } from "./my-editor/MyEditor";
+import { Input } from "./ui/input";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
-import { marked } from "marked";
-import z from "zod";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Clock04Icon, Loading03Icon, MoreVerticalSquare01Icon } from "@hugeicons/core-free-icons";
+import WriteClientSkeleton from "./ui/WriteClientSkeleton";
 
-const ChangeSchema = z.object({
-  line: z.number().int().positive(),
-  type: z.enum(["replace", "delete", "insert"]),
-  content: z.string(),
+const AgentSidebar = dynamic(() => import("./agent/AgentSidebar"), {
+  loading: () => <AgentSidebarLoading />,
+  ssr: false,
 });
-
-const AIResponseSchema = z.object({
-  elements: z.array(z.any()),
-});
-
-type AIStreamStatus = "processing" | "streaming" | "complete";
-
-type EditorUpdatePayload = {
-  id?: string;
-  status: AIStreamStatus;
-  markdown: string;
-};
-
-type TitleUpdatePayload = {
-  id?: string;
-  status: AIStreamStatus;
-  title: string;
-};
-
-function safeParseChanges(input: unknown): AIChange[] {
-  let parsed = input;
-
-  if (typeof input === "string") {
-    try {
-      parsed = JSON.parse(input);
-    } catch (err) {
-      console.error("Failed to JSON.parse AI output", err);
-      return [];
-    }
-  }
-
-  // Handle both { elements: [...] } and raw array formats
-  let rawItems: unknown[];
-  if (Array.isArray(parsed)) {
-    rawItems = parsed;
-  } else {
-    const result = AIResponseSchema.safeParse(parsed);
-    if (!result.success) {
-      console.error("Invalid AI output shape", result.error);
-      return [];
-    }
-    rawItems = result.data.elements;
-  }
-
-  // Validate each item against ChangeSchema
-  const validated: AIChange[] = [];
-  for (const item of rawItems) {
-    const res = ChangeSchema.safeParse(item);
-    if (res.success) {
-      validated.push(res.data);
-    }
-  }
-  return validated;
-}
-
-function extractJsonObjectsFromStream(text: string): unknown[] {
-  const objects: unknown[] = [];
-  let inString = false;
-  let escape = false;
-  let bracketDepth = 0;
-  let braceDepth = 0;
-  let objStart = -1;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-
-    if (inString) {
-      if (escape) {
-        escape = false;
-      } else if (ch === "\\") {
-        escape = true;
-      } else if (ch === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (ch === "[") {
-      bracketDepth += 1;
-      continue;
-    }
-
-    if (ch === "]") {
-      bracketDepth = Math.max(0, bracketDepth - 1);
-      continue;
-    }
-
-    if (bracketDepth < 1) continue;
-
-    if (ch === "{") {
-      if (braceDepth === 0) {
-        objStart = i;
-      }
-      braceDepth += 1;
-      continue;
-    }
-
-    if (ch === "}") {
-      if (braceDepth > 0) {
-        braceDepth -= 1;
-      }
-      if (braceDepth === 0 && objStart >= 0) {
-        const slice = text.slice(objStart, i + 1);
-        objStart = -1;
-        try {
-          objects.push(JSON.parse(slice));
-        } catch {
-          // ignore invalid partial object
-        }
-      }
-    }
-  }
-
-  return objects;
-}
-
-function safeParseChangesFromStream(input: string): AIChange[] {
-  const trimmed = input.trim();
-  if (!trimmed) return [];
-
-  const direct = safeParseChanges(trimmed);
-  if (direct.length > 0) return direct;
-
-  const rawObjects = extractJsonObjectsFromStream(trimmed);
-  if (rawObjects.length === 0) return [];
-
-  const validated: AIChange[] = [];
-  for (const item of rawObjects) {
-    const res = ChangeSchema.safeParse(item);
-    if (res.success) validated.push(res.data);
-  }
-  return validated;
-}
-
-const looksLikeJson = (text: string) => /^[\[{]/.test(text.trim());
-
-const isListItemLine = (line: string) =>
-  /^\s*(?:[-*+]\s+|\d+\.\s+)/.test(line.trim());
-
-const dedupeChanges = (changes: AIChange[]) => {
-  const seen = new Set<string>();
-  const result: AIChange[] = [];
-  for (const change of changes) {
-    const key = `${change.line}|${change.type}|${change.content}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(change);
-  }
-  return result;
-};
-
-const buildMarkdownFromInsertChanges = (changes: AIChange[]) => {
-  const sorted = [...changes].sort((a, b) => a.line - b.line);
-  const parts: string[] = [];
-  for (let i = 0; i < sorted.length; i += 1) {
-    const content = sorted[i].content ?? "";
-    if (i === 0) {
-      parts.push(content);
-      continue;
-    }
-
-    const prev = sorted[i - 1].content ?? "";
-    const prevIsList = isListItemLine(prev);
-    const currIsList = isListItemLine(content);
-    const joiner = prevIsList && currIsList ? "\n" : "\n\n";
-    parts.push(joiner, content);
-  }
-  return parts.join("");
-};
-
-const isSequentialInsertDocument = (changes: AIChange[]) => {
-  if (changes.length === 0) return false;
-  if (!changes.every((c) => c.type === "insert")) return false;
-  const sorted = [...changes].sort((a, b) => a.line - b.line);
-  for (let i = 0; i < sorted.length; i += 1) {
-    if (sorted[i].line !== i + 1) return false;
-  }
-  return true;
-};
-
-/**
- * Adds data-line="N" attributes to every top-level block element in an HTML string.
- * Only targets top-level block tags (p, h1-h6, blockquote, pre, ul, ol, hr, div, table).
- */
-function addDataLineAttributes(html: string): string {
-  if (!html) return html;
-
-  const container = document.createElement("div");
-  container.innerHTML = html;
-
-  const blockTags = new Set([
-    "P",
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6",
-    "BLOCKQUOTE",
-    "PRE",
-    "UL",
-    "OL",
-    "HR",
-    "DIV",
-    "TABLE",
-  ]);
-
-  let lineNumber = 0;
-  Array.from(container.children).forEach((el) => {
-    if (!blockTags.has(el.tagName)) return;
-    lineNumber += 1;
-    el.setAttribute("data-line", String(lineNumber));
-  });
-
-  return container.innerHTML;
-}
 
 function WriteClient() {
   const { mutateAsync: createDoc, isPending } = useCreateDoc();
@@ -285,28 +62,32 @@ function WriteClient() {
   const activeEditorStreamIdRef = useRef<string | null>(null);
   const activeTitleStreamIdRef = useRef<string | null>(null);
   const aiStreamBaseMarkdownRef = useRef<string | null>(null);
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["page", docs],
     queryFn: async () => await getDocsById(docs as string),
     staleTime: 1000 * 60 * 5,
+    enabled: Boolean(docs),
   });
   const activeDoc = Array.isArray(data) ? data[0] : data;
-  const hasActiveDoc = Boolean(docs && activeDoc?.id);
+  const activeDocId = activeDoc?.id;
+  const activeDocTitle = activeDoc?.title ?? "";
+  const activeDocContent = activeDoc?.content ?? "";
+  const hasActiveDoc = Boolean(docs && activeDocId);
 
   useEffect(() => {
-    if (docs && activeDoc) {
+    if (docs && activeDocId) {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
       }
-      
+
       isInitialLoadRef.current = true;
-      setHeading(activeDoc.title ?? "");
-      setValue(activeDoc.content ?? "");
-      latestHeadingRef.current = activeDoc.title ?? "";
-      latestValueRef.current = activeDoc.content ?? "";
-      lastSavedHeadingRef.current = activeDoc.title ?? "";
-      lastSavedValueRef.current = activeDoc.content ?? "";
+      setHeading(activeDocTitle);
+      setValue(activeDocContent);
+      latestHeadingRef.current = activeDocTitle;
+      latestValueRef.current = activeDocContent;
+      lastSavedHeadingRef.current = activeDocTitle;
+      lastSavedValueRef.current = activeDocContent;
       // Allow changes after initial load completes
       setTimeout(() => {
         isInitialLoadRef.current = false;
@@ -319,7 +100,7 @@ function WriteClient() {
       lastSavedHeadingRef.current = "";
       lastSavedValueRef.current = "";
     }
-  }, [data, docs]);
+  }, [activeDocContent, activeDocId, activeDocTitle, docs]);
 
   const setAIApplyingState = (next: boolean) => {
     isAIApplyingRef.current = next;
@@ -491,7 +272,7 @@ function WriteClient() {
     }
   };
   const handleChange = (content: string) => {
-    if(content === value) return;
+    if (content === value) return;
     setValue(content);
     latestValueRef.current = content;
 
@@ -527,7 +308,6 @@ function WriteClient() {
     startAIStream(
       nextMarkdown,
       (chunk) => {
-      
         setValue(chunk);
         latestValueRef.current = chunk;
       },
@@ -563,9 +343,23 @@ function WriteClient() {
   };
 
   const handleCreatePost = async () => {
-    if (docs) {
+    if (!docs && heading && value) {
       await createDoc({ title: heading, content: value });
       return;
+    } else {
+      if (heading.length === 0 && value.length > 0) {
+        toast.error("No Title provided ", {
+          description: "Please provide any Doc Title to save this.",
+        });
+      } else if (heading.length > 0 && value.length === 0) {
+        toast.error("No Content provided ", {
+          description: "Please provide any Doc Content to save this.",
+        });
+      } else {
+        toast.error("Incomplete Data ", {
+          description: "Please provide Doc Title and altease some content.",
+        });
+      }
     }
   };
 
@@ -653,9 +447,6 @@ function WriteClient() {
   if (isLoading) {
     return <WriteClientSkeleton />;
   }
-  // console.log(
-  //   addDataLineAttributes(marked.parse(latestValueRef.current) as string),
-  // );
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
@@ -663,80 +454,24 @@ function WriteClient() {
         <ScrollArea className="h-full">
           <div className="w-full flex p-4  justify-center">
             <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
-              <div className="p-2 flex items-center justify-between">
-                <div className="">
-                  {hasActiveDoc ? (
-                    <div className="flex gap-2 items-center text-muted-foreground">
-                      <HugeiconsIcon icon={Clock04Icon} size="20" />
-                      <span className="text-sm font-medium">
-                        Last edited{" "}
-                        {activeDoc?.updatedAt
-                          ? formatDistanceToNow(new Date(activeDoc.updatedAt))
-                          : "just now"}{" "}
-                        ago
-                      </span>
-                    </div>
-                  ) : (
-                    ""
-                  )}
-                </div>
-                <div className="">
-                  {hasActiveDoc ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Button
-                        disabled={isUpdatingDoc}
-                        onClick={updateDocHandler || isAutoSaving}
-                        variant={"outline"}
-                      >
-                        {isAutoSaving ? (
-                          <>
-                            <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
-                              Auto Saving
-                          </>
-                        ) : isUpdatingDoc ? (
-                          <>
-                            <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
-                              Saving
-                          </>
-                        ) : (
-                          "Save Changes"
-                        )}
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size={"icon"} variant={"outline"}>
-                           <HugeiconsIcon icon={MoreVerticalSquare01Icon} size="20" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setOpen(true)}
-                          >
-                            <DeleteIcon size={"16"} />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ) : (
-                    <Button disabled={isPending} onClick={handleCreatePost}>
-                      {isPending ? (
-                        <>
-                          <HugeiconsIcon icon={Loading03Icon} size="18" className="animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        "Create Page"
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <WriteClientActions
+                hasActiveDoc={hasActiveDoc}
+                updatedAt={activeDoc?.updatedAt}
+                isUpdatingDoc={isUpdatingDoc}
+                isAutoSaving={isAutoSaving}
+                isPending={isPending}
+                onSave={updateDocHandler}
+                onCreate={handleCreatePost}
+                onDelete={() => setOpen(true)}
+              />
               <Input
                 type="text"
-                placeholder="Write a heading of your post..."
-                className=" w-full border-border rounded-none px-4 py-1 h-12 text-6xl font-medium shadow-none"
+                placeholder="Enter a title..."
+                className="w-full border border-border rounded-none px-4  text-7xl font-medium shadow-none leading-tight"
+                style={{
+                  height: "auto",
+                  fontSize: "clamp(2rem, 2vw, 4rem)",
+                }}
                 value={heading}
                 onChange={handleHeadingChange}
                 disabled={isAIApplying}
@@ -756,9 +491,6 @@ function WriteClient() {
       <ResizableHandle withHandle />
       <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-3.5rem)]">
         <AgentSidebar
-          editorContent={addDataLineAttributes(
-            marked.parse(latestValueRef.current) as string,
-          )}
           editorMarkdown={latestValueRef.current}
           onEditorUpdate={(nextOutput) => {
             handleAIEditorUpdate(nextOutput);

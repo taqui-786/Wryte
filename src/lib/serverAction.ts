@@ -57,8 +57,8 @@ export const getDocsById = async (id: string) => {
     .where(
       and(
         eq(docs.userId, session?.user.id as string),
-        eq(docs.id, id as string)
-      )
+        eq(docs.id, id as string),
+      ),
     );
   return response;
 };
@@ -101,8 +101,8 @@ export const deleteUserDocs = async (docId: string) => {
 export async function getCoordinates(location: string) {
   const res = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-      location
-    )}&count=1`
+      location,
+    )}&count=1`,
   );
 
   const data = await res.json();
@@ -122,7 +122,7 @@ export async function getCoordinates(location: string) {
 }
 export async function getWeather(lat: number, lon: number) {
   const res = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`,
   );
 
   const data = await res.json();

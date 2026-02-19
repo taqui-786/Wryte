@@ -24,22 +24,20 @@ import { useQuery } from "@tanstack/react-query";
 import { getUserDocs } from "@/lib/serverAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryState, parseAsString } from "nuqs";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  Add01Icon,
-  Add02Icon,
   ArrowRight01Icon,
-  ArrowRight03Icon,
   CommentAdd01Icon,
-  Edit03Icon,
   File02Icon,
   PlusSignIcon,
   QuillWrite02Icon,
   Settings02Icon,
 } from "@hugeicons/core-free-icons";
+import Logo from "../../public/logo.png";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { IconSvgElement } from "@hugeicons/react";
+import Image from "next/image";
 type NavItem = {
   title: string;
   url: string;
@@ -83,10 +81,16 @@ function UserSidebar() {
   return (
     <Sidebar className="h-dvh">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-4 py-2">
-          <span className="text-2xl font-funnel font-semibold text-primary dark:text-primary">
-            Wryte.
-          </span>
+        <div className="flex items-center  gap-2 px-4 py-2">
+       
+          <Image
+            src={Logo}
+            alt="logo"
+            width={120}
+            height={36}
+            className="h-10 w-auto object-contain"
+            style={{ mixBlendMode: "multiply" }}
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -103,7 +107,9 @@ function UserSidebar() {
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton tooltip={item.title}>
-                        {item.icon && <HugeiconsIcon icon={item.icon}  size="18" />}
+                        {item.icon && (
+                          <HugeiconsIcon icon={item.icon} size="18" />
+                        )}
                         <span className="font-medium">{item.title}</span>
                         <HugeiconsIcon
                           icon={ArrowRight01Icon}
@@ -178,7 +184,7 @@ function UserSidebar() {
                   isActive={url === "/settings"}
                 >
                   <Link href="/settings" className="flex gap-2">
-                    <HugeiconsIcon icon={Settings02Icon}  size="18" />
+                    <HugeiconsIcon icon={Settings02Icon} size="18" />
                     <span className="line-clamp-1 leading-tight font-medium">
                       Settings
                     </span>
@@ -191,7 +197,7 @@ function UserSidebar() {
                   isActive={url === "/feedback"}
                 >
                   <Link href="/feedback" className="flex gap-2">
-                    <HugeiconsIcon icon={CommentAdd01Icon}  size="18" />
+                    <HugeiconsIcon icon={CommentAdd01Icon} size="18" />
                     <span className="line-clamp-1 leading-tight font-medium">
                       Feedback
                     </span>
