@@ -296,13 +296,13 @@ function AgentSidebar({
   onTitleUpdate?: (payload: TitleUpdatePayload) => void;
 }) {
   const [viewHistory, setViewHistory] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
     onError: (error) => {
       console.error("Error sending message:", error);
+      setIsThinking(false);
     },
   });
-
-  const [isThinking, setIsThinking] = useState(false);
 
   const [inputValue, setInputValue] = useState("");
   const editorContent = useMemo(
@@ -314,15 +314,11 @@ function AgentSidebar({
   const lastEditorUpdateRef = useRef<EditorUpdatePayload | null>(null);
   const lastTitleUpdateRef = useRef<TitleUpdatePayload | null>(null);
 
-  // Auto-scroll to bottom when messages change - use a ref-based approach
+  // Auto-scroll to bottom when messages change or isThinking changes
+  // Using direct scroll instead of timeout to ensure it updates during streaming
   useEffect(() => {
-    // Use requestAnimationFrame to avoid triggering during render
-    const timeoutId = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [messages.length]); // Only depend on length, not the entire messages array
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isThinking]);
 
   useEffect(() => {
     if (!onEditorUpdate) return;
@@ -522,7 +518,7 @@ function AgentSidebar({
                       icon={Brain01FreeIcons}
                       className="size-[18px] animate-pulse"
                     />
-                    <span>Thinking</span>
+                    <span>Thinking...</span>
                   </div>
                 </div>
               </div>

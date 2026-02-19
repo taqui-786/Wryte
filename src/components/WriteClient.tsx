@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { parseAsString, useQueryState } from "nuqs";
+import { HugeiconsIcon } from "@hugeicons/react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -31,6 +32,12 @@ import {
 } from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
 import WriteClientSkeleton from "./ui/WriteClientSkeleton";
+import {
+  Edit01Icon,
+  Edit03Icon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons";
+import { Button } from "./ui/button";
 
 const AgentSidebar = dynamic(() => import("./agent/AgentSidebar"), {
   loading: () => <AgentSidebarLoading />,
@@ -42,6 +49,8 @@ function WriteClient() {
   const { mutateAsync: updateDoc, isPending: isUpdatingDoc } = useUpdateDoc();
   const [docs] = useQueryState("page", parseAsString);
   const [heading, setHeading] = useState("");
+  const [isEditingHeading, setIsEditingHeading] = useState(false);
+  const headingInputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isAIApplying, setIsAIApplying] = useState(false);
@@ -93,11 +102,18 @@ function WriteClient() {
         isInitialLoadRef.current = false;
       }, 100);
     } else {
-      setHeading("");
+      const RandomTimeId: string = (
+        (Date.now() + Math.random() * 90000) %
+        100000
+      )
+        .toFixed(0)
+        .padStart(5, "0");
+      const noHeaderId = `Untitled Doc ${RandomTimeId}`;
+      setHeading(noHeaderId);
       setValue("");
-      latestHeadingRef.current = "";
+      latestHeadingRef.current = noHeaderId;
       latestValueRef.current = "";
-      lastSavedHeadingRef.current = "";
+      lastSavedHeadingRef.current = noHeaderId;
       lastSavedValueRef.current = "";
     }
   }, [activeDocContent, activeDocId, activeDocTitle, docs]);
@@ -450,7 +466,7 @@ function WriteClient() {
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
-      <ResizablePanel defaultSize={70} className="max-h-[calc(100vh-3.5rem)]">
+      <ResizablePanel defaultSize={70}  className="max-h-[calc(100vh-4rem)]">
         <ScrollArea className="h-full">
           <div className="w-full flex p-4  justify-center">
             <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
@@ -464,18 +480,43 @@ function WriteClient() {
                 onCreate={handleCreatePost}
                 onDelete={() => setOpen(true)}
               />
-              <Input
-                type="text"
-                placeholder="Enter a title..."
-                className="w-full border border-border rounded-none px-4  text-7xl font-medium shadow-none leading-tight"
-                style={{
-                  height: "auto",
-                  fontSize: "clamp(2rem, 2vw, 4rem)",
-                }}
-                value={heading}
-                onChange={handleHeadingChange}
-                disabled={isAIApplying}
-              />
+              {isEditingHeading ? (
+                <Input
+                  ref={headingInputRef}
+                  type="text"
+                  autoFocus
+                  placeholder="Untitled"
+                  className="w-full border-0 border-b border-border rounded-none px-0 py-1 text-2xl font-semibold shadow-none leading-tight bg-transparent focus-visible:ring-0 focus-visible:border-primary"
+                  value={heading}
+                  onChange={handleHeadingChange}
+                  disabled={isAIApplying}
+                  onBlur={() => setIsEditingHeading(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === "Escape") {
+                      setIsEditingHeading(false);
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAIApplying) {
+                      setIsEditingHeading(true);
+                      setTimeout(() => headingInputRef.current?.focus(), 0);
+                    }
+                  }}
+                  className="group flex items-center gap-2 text-left w-full px-0 py-1 bg-transparent border-none cursor-text"
+                  disabled={isAIApplying}
+                >
+                  <span className="text-2xl font-semibold leading-tight truncate text-muted-foreground pl-4">
+                    {heading}
+                  </span>
+                  <Button variant="ghost" size={"icon-lg"}>
+                    <HugeiconsIcon icon={Edit03Icon} />
+                  </Button>
+                </button>
+              )}
               {/* </div> */}
               <MyEditor
                 ref={editorRef}
@@ -489,7 +530,7 @@ function WriteClient() {
         </ScrollArea>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-3.5rem)]">
+      <ResizablePanel defaultSize={30}  className="max-h-[calc(100vh-4rem)]">
         <AgentSidebar
           editorMarkdown={latestValueRef.current}
           onEditorUpdate={(nextOutput) => {

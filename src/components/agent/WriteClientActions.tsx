@@ -125,7 +125,7 @@ export default function WriteClientActions({
                   size="18"
                   className="animate-spin"
                 />
-                Creating...
+                Creating
               </>
             ) : (
               "Create Page"

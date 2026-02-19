@@ -15,17 +15,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <main className="h-dvh relative">
-      <Provider>
-        <SidebarProvider>
-          <UserSidebar />
-          <div className="h-dvh flex flex-col w-full">
-            <UserHeader />
+<main className="min-h-dvh flex">
+  <Provider>
+    <SidebarProvider>
+      <UserSidebar />
+      <div className="flex flex-col flex-1">
+        <UserHeader />
+        <div className="flex-1">
+          {children}
+        </div>
+      </div>
+    </SidebarProvider>
+  </Provider>
+</main>
 
-            {children}
-          </div>
-        </SidebarProvider>
-      </Provider>
-    </main>
   );
 }

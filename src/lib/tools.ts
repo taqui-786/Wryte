@@ -199,6 +199,7 @@ Your job is to modify the document based on the user's instructions.
 Return ONLY the lines that changed.
 INFO: Each top-level block corresponds to a line using its data-line attribute in the HTML.
 Use the data-line numbers from the HTML context.
+INFO: Never start with Title/Heading or Subheading always start with a paragraph .
 Rules:
 - Only include lines that were modified.
 - Do not return unchanged lines.
@@ -293,6 +294,7 @@ export const editorTitleTool = ({
 You are an expert editor.
 Create a single, concise title for the document.
 Return ONLY the title text with no quotes, no markdown, no extra commentary.
+Info: if the title is "Untitled", always return somthing meaningull according to the document content.
         `.trim(),
         prompt: `
 Instructions: ${instructions ?? "None"}
