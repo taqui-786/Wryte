@@ -540,6 +540,7 @@ function WriteClient() {
             handleAITitleUpdate(nextTitle);
           }}
           editorHeading={heading}
+          docId={docs as string}
         />
       </ResizablePanel>
     </ResizablePanelGroup>

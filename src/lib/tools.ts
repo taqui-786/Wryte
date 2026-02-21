@@ -199,7 +199,7 @@ Your job is to modify the document based on the user's instructions.
 Return ONLY the lines that changed.
 INFO: Each top-level block corresponds to a line using its data-line attribute in the HTML.
 Use the data-line numbers from the HTML context.
-INFO: Never start with Title/Heading or Subheading always start with a paragraph .
+INFO: Never start with content Title/Heading or Subheading always start with a paragraph intro, no need to add title or heading (STRICTLY FOLLOW THIS RULE).
 Rules:
 - Only include lines that were modified.
 - Do not return unchanged lines.

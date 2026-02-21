@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { Button } from "../ui/button";
 import { motion } from "framer-motion";
+import Image from "next/image";
+import Logo from "../../../public/logo.png";
 function Header() {
   return (
     <motion.div
@@ -17,13 +19,18 @@ function Header() {
       className="w-full  border-b flex items-center justify-between px-12 py-2 "
     >
       <div className="flex gap-2 items-center justify-center">
-        <span className="text-2xl font-funnel font-semibold text-primary dark:text-primary">
-          Wryte.
-        </span>
+        <Image
+            src={Logo}
+            alt="logo"
+            width={120}
+            height={36}
+            className="h-10 w-auto object-contain"
+            style={{ mixBlendMode: "multiply" }}
+          />
       </div>
       <div className="flex w-fit justify-center items-center gap-6 text-sm font-medium">
         <Link href={"/"}>Features</Link>
-        <a href={"https://x.com/Taquiimam14"} target="_blank" rel="noreferrer">
+        <a href={"https://x.com/md_taqui_imam"} target="_blank" rel="noreferrer">
           Twitter
         </a>
         <a

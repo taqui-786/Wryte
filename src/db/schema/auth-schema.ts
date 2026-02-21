@@ -85,37 +85,3 @@ export const docs = pgTable("docs", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
-export const agentChat = pgTable("agentchat", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  docId: uuid("doc_id")
-    .notNull()
-    .references(() => docs.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  status: text("status").notNull().default("active"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
-export const agentMessages = pgTable("agentmessages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  agentChatId: uuid("agent_chat_id")
-    .notNull()
-    .references(() => agentChat.id, { onDelete: "cascade" }),
-
-  role: text("role").notNull(),
-  content: text("content").notNull(),
-
-  model: text("model"),
-  thinkingProcess: text("thinking_process"),
-  tokensUsed: text("tokens_used"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});

@@ -1,29 +1,43 @@
-import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../ui/button";
-import { PlusIcon } from "../UserSidebar";
 import { useChat } from "@ai-sdk/react";
-import { cn } from "@/lib/utils";
+import {
+  Brain01FreeIcons,
+  Clock04Icon,
+  Menu01Icon,
+  SentIcon,
+  ToolsIcon,
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MyUIMessage } from "@/app/api/chat/route";
-import { buildEditorContentFromMarkdown } from "./editor-content";
-import type {
-  EditorUpdatePayload,
-  TitleUpdatePayload,
-} from "./ai-update-types";
+import {
+  useGetAgentChatMessages,
+  useGetAllAgentChats,
+} from "@/lib/queries/getAgentChatQuery";
+import { createAgentChat } from "@/lib/serverAction";
+import { cn } from "@/lib/utils";
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
 } from "../ai-elements/reasoning";
 import { StreamingMessage } from "../ai-elements/streaming-message";
-import { HugeiconsIcon } from "@hugeicons/react";
-import {
-  Brain01FreeIcons,
-  Clock04Icon,
-  Menu01Icon,
-  ToolsIcon,
-} from "@hugeicons/core-free-icons";
+import { PlusIcon } from "../UserSidebar";
+import { Button } from "../ui/button";
 import { Markdown } from "../ui/markdown";
+import AgentRecentChatsPreview from "./agent-sidebar/AgentRecentChatsPreview";
+import type {
+  EditorUpdatePayload,
+  TitleUpdatePayload,
+} from "./ai-update-types";
+import { buildEditorContentFromMarkdown } from "./editor-content";
+import { Skeleton } from "../ui/skeleton";
+
+const AgentHistoryPanel = dynamic(
+  () => import("./agent-sidebar/AgentHistoryPanel"),
+);
 
 // --- Helpers for dynamic tool card rendering ---
 
@@ -124,7 +138,7 @@ function ToolStatusCard({
       className={cn(
         "rounded-md border px-3 py-2 text-sm my-2",
         props.isComplete
-          ? "border-border bg-white"
+          ? "border-border bg-muted"
           : "border-border bg-primary/10",
       )}
     >
@@ -238,7 +252,7 @@ function MessageBubble({
         className={` group-data-[user-type=false]:w-full w-fit max-w-[80%] rounded-lg p-3 ${
           isUser
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
+            : "bg-background text-foreground"
         }`}
       >
         {filteredParts.map((part, i) => {
@@ -289,20 +303,34 @@ function AgentSidebar({
   onEditorUpdate,
   onTitleUpdate,
   editorHeading,
+  docId,
 }: {
   editorMarkdown: string;
   editorHeading: string;
   onEditorUpdate?: (payload: EditorUpdatePayload) => void;
   onTitleUpdate?: (payload: TitleUpdatePayload) => void;
+  docId?: string;
 }) {
   const [viewHistory, setViewHistory] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
     onError: (error) => {
       console.error("Error sending message:", error);
       setIsThinking(false);
     },
   });
+
+  // Fetch all chats for this document (history panel)
+  const { data: allChats, isLoading: isLoadingAllChats } =
+    useGetAllAgentChats(docId);
+
+  // Fetch messages for the active chat
+  const { data: activeChatData } = useGetAgentChatMessages(activeChatId);
 
   const [inputValue, setInputValue] = useState("");
   const editorContent = useMemo(
@@ -313,9 +341,26 @@ function AgentSidebar({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastEditorUpdateRef = useRef<EditorUpdatePayload | null>(null);
   const lastTitleUpdateRef = useRef<TitleUpdatePayload | null>(null);
+  const hasLoadedChatRef = useRef<string | null>(null);
 
-  // Auto-scroll to bottom when messages change or isThinking changes
-  // Using direct scroll instead of timeout to ensure it updates during streaming
+  // Load messages when active chat data arrives
+  useEffect(() => {
+    if (activeChatData && hasLoadedChatRef.current !== activeChatData.chatId) {
+      hasLoadedChatRef.current = activeChatData.chatId;
+      if (activeChatData.messages.length > 0) {
+        const restored = activeChatData.messages.map((m) => ({
+          id: m.messageId,
+          role: m.role as "user" | "assistant",
+          parts: m.parts as MyUIMessage["parts"],
+        })) as MyUIMessage[];
+        setMessages(restored);
+      } else {
+        setMessages([]);
+      }
+      setLoadingChatId(null);
+    }
+  }, [activeChatData, setMessages]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isThinking]);
@@ -414,16 +459,57 @@ function AgentSidebar({
     onTitleUpdate(nextPayload);
   }, [messages, onTitleUpdate]);
 
+  // Create a new chat session
+  const handleNewChat = useCallback(async () => {
+    if (!docId) return;
+    try {
+      const chat = await createAgentChat(docId);
+      setActiveChatId(chat.id);
+      hasLoadedChatRef.current = chat.id;
+      setMessages([]);
+      setViewHistory(false);
+      queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
+    } catch (error) {
+      console.error("Failed to create new chat:", error);
+    }
+  }, [docId, setMessages, queryClient]);
+
+  // Switch to a specific chat from history
+  const handleSelectChat = useCallback(
+    (chatId: string) => {
+      setLoadingChatId(chatId);
+      hasLoadedChatRef.current = null; // Reset so the effect loads new messages
+      setActiveChatId(chatId);
+      setViewHistory(false);
+      queryClient.invalidateQueries({
+        queryKey: ["agent-chat-messages", chatId],
+      });
+    },
+    [queryClient],
+  );
+
+  const preloadHistoryPanel = useCallback(() => {
+    void import("./agent-sidebar/AgentHistoryPanel");
+  }, []);
+
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    // if (!inputValue.trim() || isLoading) return;
 
     try {
       const text = inputValue;
       setInputValue("");
 
-      // Send message to API - useChat will handle adding it to messages
       setIsThinking(true);
+      let chatIdToUse = activeChatId;
+
+      if (chatIdToUse === null && docId) {
+        const chat = await createAgentChat(docId);
+        chatIdToUse = chat.id;
+        setActiveChatId(chat.id);
+        hasLoadedChatRef.current = chat.id;
+        queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
+      }
+
       sendMessage({
         text,
         metadata: {
@@ -431,12 +517,22 @@ function AgentSidebar({
           editorContent,
           editorMarkdown,
           editorHeading,
+          chatId: chatIdToUse || undefined,
         },
       });
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
+
+  useEffect(() => {
+    if (isThinking) {
+      setShowThinking(true);
+    } else {
+      const timer = setTimeout(() => setShowThinking(false), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [isThinking]);
 
   // Taqui yrr don't remove this code
   useEffect(() => {
@@ -453,7 +549,6 @@ function AgentSidebar({
       }
     }
   }, [messages, isThinking]);
-  console.log({ messages });
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -464,9 +559,8 @@ function AgentSidebar({
           <Button
             variant={"ghost"}
             size="icon-sm"
-            onClick={() => {
-              // setMessages([]);
-            }}
+            onClick={handleNewChat}
+            disabled={!docId}
           >
             <PlusIcon size="20" />
           </Button>
@@ -476,6 +570,8 @@ function AgentSidebar({
             size="icon-sm"
             className="data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
             onClick={() => setViewHistory(!viewHistory)}
+            onMouseEnter={preloadHistoryPanel}
+            onFocus={preloadHistoryPanel}
           >
             <HugeiconsIcon icon={Clock04Icon} size="20" />
           </Button>
@@ -485,9 +581,12 @@ function AgentSidebar({
         </div>
       </div>
       {viewHistory ? (
-        <div className="h-full flex items-center justify-center">
-          <p>Your Recent Chats</p>
-        </div>
+        <AgentHistoryPanel
+          allChats={allChats}
+          activeChatId={activeChatId}
+          isLoading={isLoadingAllChats}
+          onSelectChat={handleSelectChat}
+        />
       ) : (
         <>
           {/* body part scroll area */}
@@ -496,11 +595,32 @@ function AgentSidebar({
             className="flex-1  min-h-0 overflow-y-auto p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
           >
             {messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground">
-                <p>Start a conversation with AI agent...</p>
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+                {isLoadingAllChats ? (
+                  <div className="w-full max-w-[280px] flex flex-col gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="w-full px-3 py-2 rounded-md">
+                        <Skeleton className="h-4 w-3/4 " />
+                        <Skeleton className="h-3 w-1/2  mt-1" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {allChats && allChats.length > 0 ? (
+                      <AgentRecentChatsPreview
+                        chats={allChats.slice(0, 5)}
+                        onSelectChat={handleSelectChat}
+                        loadingChatId={loadingChatId}
+                      />
+                    ) : (
+                      <p>Start a conversation with AI agent...</p>
+                    )}
+                  </>
+                )}
               </div>
             ) : (
-              messages.map((message, index) => {
+              messages.map((message) => {
                 return (
                   <MessageBubble
                     parts={message.parts}
@@ -510,8 +630,11 @@ function AgentSidebar({
                 );
               })
             )}
-            {isThinking && (
-              <div className="mb-4 flex justify-start">
+            {showThinking && (
+              <div
+                className="mb-4 flex justify-start transition-opacity duration-300"
+                style={{ opacity: showThinking ? 1 : 0 }}
+              >
                 <div className="max-w-[85%] rounded-lg p-3 bg-transparent text-foreground">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
                     <HugeiconsIcon
@@ -528,11 +651,11 @@ function AgentSidebar({
             {/* Removed separate loading indicator - now shown via streaming thinking */}
           </div>
           {/* Agent - Chat box */}
-          <div className="p-2">
+          <div className="p-0">
             <div className="">
               <form
                 onSubmit={handleSend}
-                className="w-full p-2 border rounded-lg flex gap-2"
+                className="w-full p-2 border-t flex flex-col gap-1"
               >
                 <textarea
                   value={inputValue}
@@ -544,29 +667,16 @@ function AgentSidebar({
                     }
                   }}
                   disabled={isThinking}
-                  placeholder="Ask AI anything..."
-                  className="flex-1 h-24 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Tell me what you want to write..."
+                  className="flex-1 h-24 resize-none  bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <Button
-                  size="icon"
+                  size="icon-lg"
                   className="self-end"
                   type="submit"
                   disabled={isThinking || !inputValue.trim()}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m22 2-7 20-4-9-9-4Z" />
-                    <path d="M22 2 11 13" />
-                  </svg>
+                  <HugeiconsIcon icon={SentIcon} />
                 </Button>
               </form>
             </div>

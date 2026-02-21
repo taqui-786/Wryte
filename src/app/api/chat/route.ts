@@ -10,11 +10,13 @@ import {
   streamText,
 } from "ai";
 import { editorTitleTool, editorWriteTool, weatherTool } from "@/lib/tools";
+import { saveAgentMessages } from "@/lib/serverAction";
 export type Metadata = {
   userMessage: string;
   editorContent?: string;
   editorMarkdown?: string;
   editorHeading?: string;
+  chatId?: string;
 };
 export type MyUIMessage = UIMessage<
   Metadata, // so this is extra information
@@ -89,16 +91,36 @@ export type MyUIMessage = UIMessage<
 >;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: MyUIMessage[] } = await req.json();
+  const { messages }: { messages: MyUIMessage[]} =
+    await req.json();
   const latestMetadata = messages[messages.length - 1]?.metadata;
   const editorContent = latestMetadata?.editorContent;
   const editorMarkdown = latestMetadata?.editorMarkdown;
   const editorHeading = latestMetadata?.editorHeading;
+  const chatId = latestMetadata?.chatId;
   const stream = createUIMessageStream<MyUIMessage>({
     generateId: createIdGenerator({
       prefix: "msg",
       size: 16,
     }),
+    originalMessages: messages,
+    onFinish: async ({ messages: finalMessages }) => {
+      
+      if (chatId) {
+        try {
+          await saveAgentMessages(
+            chatId,
+            finalMessages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              parts: m.parts,
+            })),
+          );
+        } catch (error) {
+          console.error("Failed to save agent messages:", error);
+        }
+      }
+    },
     execute: async ({ writer }) => {
       const get_weather_tool = weatherTool({ writer });
 
