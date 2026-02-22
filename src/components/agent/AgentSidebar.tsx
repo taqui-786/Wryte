@@ -2,6 +2,7 @@ import { useChat } from "@ai-sdk/react";
 import {
   Brain01FreeIcons,
   Clock04Icon,
+  Loading03FreeIcons,
   Menu01Icon,
   SentIcon,
   ToolsIcon,
@@ -34,6 +35,7 @@ import type {
 } from "./ai-update-types";
 import { buildEditorContentFromMarkdown } from "./editor-content";
 import { Skeleton } from "../ui/skeleton";
+import { toast } from "sonner";
 
 const AgentHistoryPanel = dynamic(
   () => import("./agent-sidebar/AgentHistoryPanel"),
@@ -68,15 +70,6 @@ function getToolCardProps(part: any): ToolCardProps | null {
   const status: string = part.data?.status ?? "processing";
   const isComplete = status === "complete";
   const label = prettifyPartType(type);
-
-  // tool-* invocation parts  (tool-get_weather_tool, tool-write_in_editor_tool, …)
-  // if (type.startsWith("tool-")) {
-  //   return {
-  //     statusMessage: `Running ${label}`,
-  //     statusBadge: status,
-  //     isComplete: false,
-  //   };
-  // }
 
   // data-editor-update
   if (type === "data-editor-update") {
@@ -116,7 +109,7 @@ function getToolCardProps(part: any): ToolCardProps | null {
       statusMessage: "Task completed",
       statusBadge: status,
       isComplete: true,
-      previewText: part.data?.text,
+      previewText: part.data?.text || "",
       previewIsMarkdown: true,
     };
   }
@@ -144,10 +137,20 @@ function ToolStatusCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <HugeiconsIcon
-            icon={ToolsIcon}
-            className={cn("size-[16px]", !props.isComplete && "animate-pulse")}
-          />
+          {
+            !props.isComplete ? (
+              <HugeiconsIcon
+                icon={Loading03FreeIcons}
+                className={cn("size-[16px] animate-spin")}
+              />
+            ) : (
+              <HugeiconsIcon
+                icon={ToolsIcon}
+                className={cn("size-[16px]")}
+              />
+            )
+          }
+      
           <span className="font-medium">{props.statusMessage}</span>
         </div>
         <span className="text-xs capitalize text-muted-foreground">
@@ -157,7 +160,13 @@ function ToolStatusCard({
       {props.previewText && (
         <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
           {props.previewIsMarkdown ? (
-            <Markdown className="text-sm">{props.previewText}</Markdown>
+            props.previewText.startsWith("{") ? (
+              ""
+            ) : (
+              <Markdown className="text-sm">{props.previewText}</Markdown>
+            )
+          ) : props.previewText.startsWith("{") ? (
+            ""
           ) : (
             props.previewText
           )}
@@ -249,7 +258,7 @@ function MessageBubble({
       data-user-type={isUser}
     >
       <div
-        className={` group-data-[user-type=false]:w-full w-fit max-w-[80%] rounded-lg p-3 ${
+        className={` group-data-[user-type=false]:w-full w-fit 2xl:max-w-[80%] max-w-full rounded-lg p-3 ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-background text-foreground"
@@ -318,9 +327,11 @@ function AgentSidebar({
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Ai client side calling here - Taqui
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
     onError: (error) => {
       console.error("Error sending message:", error);
+      toast.error("Something went wrong, please try again");
       setIsThinking(false);
     },
   });
@@ -342,11 +353,13 @@ function AgentSidebar({
   const lastEditorUpdateRef = useRef<EditorUpdatePayload | null>(null);
   const lastTitleUpdateRef = useRef<TitleUpdatePayload | null>(null);
   const hasLoadedChatRef = useRef<string | null>(null);
+  const isRestoringFromDBRef = useRef(false);
 
   // Load messages when active chat data arrives
   useEffect(() => {
     if (activeChatData && hasLoadedChatRef.current !== activeChatData.chatId) {
       hasLoadedChatRef.current = activeChatData.chatId;
+      isRestoringFromDBRef.current = true;
       if (activeChatData.messages.length > 0) {
         const restored = activeChatData.messages.map((m) => ({
           id: m.messageId,
@@ -358,6 +371,10 @@ function AgentSidebar({
         setMessages([]);
       }
       setLoadingChatId(null);
+      // Clear on next frame so the effects triggered by setMessages skip
+      requestAnimationFrame(() => {
+        isRestoringFromDBRef.current = false;
+      });
     }
   }, [activeChatData, setMessages]);
 
@@ -367,6 +384,7 @@ function AgentSidebar({
 
   useEffect(() => {
     if (!onEditorUpdate) return;
+    if (isRestoringFromDBRef.current) return;
 
     let latestPart: {
       part: any;
@@ -414,6 +432,7 @@ function AgentSidebar({
 
   useEffect(() => {
     if (!onTitleUpdate) return;
+    if (isRestoringFromDBRef.current) return;
 
     let latestPart: {
       part: any;
@@ -553,8 +572,10 @@ function AgentSidebar({
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Heading */}
-      <div className="w-full p-2 flex items-center justify-between border-b">
-        <h2 className="text-lg font-medium">Agent</h2>
+      <div className="w-full p-2 gap-2 flex items-center justify-between border-b">
+        <h2 className="text-sm font-medium truncate block w-full">
+          {activeChatData?.title || "New Chat"}
+        </h2>
         <div className="flex items-center justify-center gap-1">
           <Button
             variant={"ghost"}
@@ -592,7 +613,7 @@ function AgentSidebar({
           {/* body part scroll area */}
           <div
             ref={scrollRef}
-            className="flex-1  min-h-0 overflow-y-auto p-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
+            className="flex-1  min-h-0 overflow-y-auto 2xl:p-4 p-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
           >
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
@@ -614,7 +635,7 @@ function AgentSidebar({
                         loadingChatId={loadingChatId}
                       />
                     ) : (
-                      <p>Start a conversation with AI agent...</p>
+                      <p>Start a conversation with Agent...</p>
                     )}
                   </>
                 )}

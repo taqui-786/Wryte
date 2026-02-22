@@ -178,14 +178,15 @@ function WriteClient() {
   };
 
   const queueAutoSave = (nextHeading: string, nextValue: string) => {
+    
     if (!docs || isInitialLoadRef.current) {
       return;
     }
-
+    
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-
+    
     if (
       nextHeading === lastSavedHeadingRef.current &&
       nextValue === lastSavedValueRef.current
@@ -289,6 +290,7 @@ function WriteClient() {
   };
   const handleChange = (content: string) => {
     if (content === value) return;
+    
     setValue(content);
     latestValueRef.current = content;
 
@@ -303,6 +305,7 @@ function WriteClient() {
     newHeading: string,
     options?: { skipAutoSave?: boolean },
   ) => {
+    
     setHeading(newHeading);
     latestHeadingRef.current = newHeading;
 
@@ -330,6 +333,7 @@ function WriteClient() {
       () => {
         latestValueRef.current = nextMarkdown;
         setValue(nextMarkdown);
+
         queueAutoSave(latestHeadingRef.current, nextMarkdown);
       },
       editorStreamIntervalRef,
@@ -422,6 +426,7 @@ function WriteClient() {
     if (nextMarkdown && nextMarkdown !== latestValueRef.current) {
       setValue(nextMarkdown);
       latestValueRef.current = nextMarkdown;
+      
       queueAutoSave(latestHeadingRef.current, nextMarkdown);
       endEditorStream(id);
       return;

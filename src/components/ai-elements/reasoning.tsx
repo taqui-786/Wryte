@@ -53,6 +53,7 @@ export const Reasoning = memo(
     children,
     ...props
   }: ReasoningProps) => {
+        
     const [isOpen, setIsOpen] = useControllableState({
       prop: open,
       defaultProp: defaultOpen,
@@ -117,10 +118,13 @@ export const Reasoning = memo(
 export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 
 const getThinkingMessage = (isStreaming: boolean, duration?: number) => {
-  if (isStreaming || duration === 0) {
+  if (isStreaming === true && duration === 0) {
     return <p>Thinking...</p>;
   }
-  if (duration === undefined) {
+  if (duration === 0 && isStreaming === false) {
+    return <p>Thought for a few seconds</p>;
+  }
+  if(duration === undefined){
     return <p>Thought for a few seconds</p>;
   }
   return <p>Thought for {duration} seconds</p>;
@@ -129,7 +133,7 @@ const getThinkingMessage = (isStreaming: boolean, duration?: number) => {
 export const ReasoningTrigger = memo(
   ({ className, children, ...props }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
-
+console.log(isStreaming);
     return (
       <CollapsibleTrigger
         className={cn(
