@@ -3,7 +3,11 @@ import { Decoration, DecorationSet } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap, toggleMark } from "prosemirror-commands";
 import { history, undo, redo } from "prosemirror-history";
-import { autocompletePlugin, placeholderPlugin } from "./MyPlugins";
+import {
+  autocompletePlugin,
+  placeholderPlugin,
+  type AutocompleteRequest,
+} from "./MyPlugins";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { buildInputRules } from "./EditorInputRules";
@@ -45,6 +49,7 @@ export function createEditorState(
   mySchema: any,
   viewRef: React.MutableRefObject<any>,
   defaultContent?: string | null,
+  requestAutocomplete?: AutocompleteRequest,
   onChange?: (json: any) => void,
 ) {
   let startDoc: any;
@@ -184,7 +189,7 @@ export function createEditorState(
       keymap(baseKeymap),
       dropCursor(),
       placeholderPlugin("Let's start writing your document..."),
-      autocompletePlugin(mySchema),
+      autocompletePlugin(mySchema, requestAutocomplete),
       gapCursor(),
       dataLinePlugin,
       toolbarUpdatePlugin,

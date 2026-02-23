@@ -22,15 +22,7 @@ export const getServerUserSession = cache(async () => {
   return session;
 });
 
-const testing = async () => {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
-    contents: "Robot holding a red skateboard",
-  });
 
-  console.log(response);
-};
-// testing()
 
 export const getUserDocs = async () => {
   const session = await getServerUserSession();

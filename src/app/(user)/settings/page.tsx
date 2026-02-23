@@ -100,12 +100,7 @@ export default async function SettingsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="email">Email</Label>
-                    <Badge
-                      variant="secondary"
-                      className="rounded-full text-[10px] uppercase tracking-widest"
-                    >
-                      Locked
-                    </Badge>
+             
                   </div>
                   <Input
                     id="email"

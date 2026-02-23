@@ -1,9 +1,112 @@
-import { autoComplete } from "@/lib/model";
 import { Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { marked } from "marked";
 import { DOMParser, Fragment } from "prosemirror-model";
 import { defaultMarkdownSerializer } from "prosemirror-markdown";
+
+export type AutocompleteRequest = (input: {
+  context: string;
+  node: string;
+  endWithSpace: boolean;
+  lastWord?: string;
+  isIncompleteWord?: boolean;
+}) => Promise<string>;
+
+const COMMON_COMPLETE_WORDS = new Set([
+  "a",
+  "i",
+  "an",
+  "am",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "the",
+  "and",
+  "or",
+  "but",
+  "if",
+  "then",
+  "else",
+  "to",
+  "of",
+  "in",
+  "on",
+  "at",
+  "by",
+  "for",
+  "from",
+  "with",
+  "as",
+  "it",
+  "this",
+  "that",
+  "these",
+  "those",
+  "he",
+  "she",
+  "we",
+  "they",
+  "you",
+  "me",
+  "my",
+  "our",
+  "your",
+  "their",
+  "his",
+  "her",
+  "its",
+  "do",
+  "does",
+  "did",
+  "can",
+  "could",
+  "will",
+  "would",
+  "should",
+  "may",
+  "might",
+  "must",
+  "not",
+  "no",
+  "yes",
+  "so",
+  "than",
+  "too",
+  "very",
+]);
+
+const normalizeWord = (word: string) =>
+  word.toLowerCase().replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, "");
+
+// Conservative detector: only mark as incomplete when there is a strong fragment signal.
+const isLikelyIncompleteWord = (context: string, lastWord: string) => {
+  if (!lastWord || /\s$/.test(context)) return false;
+
+  const normalized = normalizeWord(lastWord);
+  if (!normalized) return false;
+
+  if (COMMON_COMPLETE_WORDS.has(normalized)) return false;
+  if (/^\d+$/.test(normalized)) return false;
+  if (normalized.length === 1) return false;
+
+  // Explicit fragment markers
+  if (/[-/'’]$/.test(lastWord)) return true;
+
+  // Very short unknown tokens are often partial words ("th", "de", "pr")
+  if (normalized.length <= 2) return true;
+
+  // Consonant-heavy endings are often unfinished fragments ("str", "projct")
+  if (!/[aeiou]/i.test(normalized) && normalized.length >= 3) return true;
+  if (/[bcdfghjklmnpqrstvwxyz]{3,}$/i.test(normalized) && normalized.length >= 5) {
+    return true;
+  }
+
+  return false;
+};
 
 export function placeholderPlugin(placeholderText: string) {
   return new Plugin({
@@ -28,7 +131,10 @@ export function placeholderPlugin(placeholderText: string) {
   });
 }
 
-export function autocompletePlugin(schema: any) {
+export function autocompletePlugin(
+  schema: any,
+  requestCompletion: AutocompleteRequest = async () => "",
+) {
   let decorationSet: DecorationSet | null = null;
   let isAutocompleteActive = false;
   let currentSuggestion = "";
@@ -155,16 +261,10 @@ export function autocompletePlugin(schema: any) {
 
                 // Extract the last word for incomplete word detection
                 const lastWord = textBefore.split(/\s+/).pop() || "";
-
-                // Detect if the last word is likely incomplete
-                // Heuristics: short word, no punctuation at end, looks like a fragment
-                const isIncompleteWord =
-                  !endsWithSpace(textBefore) &&
-                  (lastWord.length < 4 || // Very short words might be incomplete
-                    /[bcdfghjklmnpqrstvwxyz]{2,}$/i.test(lastWord) || // Ends with multiple consonants
-                    (/(ing|ed|er|est|tion|ness|ment|ly)$/.test(lastWord) ===
-                      false &&
-                      lastWord.length < 8)); // Doesn't have common endings and is short
+                const isIncompleteWord = isLikelyIncompleteWord(
+                  textBefore,
+                  lastWord,
+                );
 
                 // Determine spacing strategy
                 // TRUE = space-separated (new word/phrase)
@@ -178,7 +278,7 @@ export function autocompletePlugin(schema: any) {
                   needsSpaceSeparation = !isIncompleteWord;
                 }
 
-                const completion = await autoComplete({
+                const completion = await requestCompletion({
                   context: textBefore,
                   node: currentNode,
                   endWithSpace: needsSpaceSeparation,

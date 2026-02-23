@@ -137,20 +137,15 @@ function ToolStatusCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {
-            !props.isComplete ? (
-              <HugeiconsIcon
-                icon={Loading03FreeIcons}
-                className={cn("size-[16px] animate-spin")}
-              />
-            ) : (
-              <HugeiconsIcon
-                icon={ToolsIcon}
-                className={cn("size-[16px]")}
-              />
-            )
-          }
-      
+          {!props.isComplete ? (
+            <HugeiconsIcon
+              icon={Loading03FreeIcons}
+              className={cn("size-[16px] animate-spin")}
+            />
+          ) : (
+            <HugeiconsIcon icon={ToolsIcon} className={cn("size-[16px]")} />
+          )}
+
           <span className="font-medium">{props.statusMessage}</span>
         </div>
         <span className="text-xs capitalize text-muted-foreground">
@@ -181,9 +176,11 @@ function ToolStatusCard({
 function MessageBubble({
   message,
   parts,
+  isOld,
 }: {
   message: MyUIMessage;
   parts: any[];
+  isOld: boolean;
 }) {
   const isUser = message.role === "user";
 
@@ -291,7 +288,7 @@ function MessageBubble({
               <div className="whitespace-pre-wrap" key={i}>
                 <StreamingMessage
                   markdown
-                  animate={message.role === "assistant"}
+                  animate={message.role === "assistant" && !isOld}
                   text={part.text}
                 />
               </div>
@@ -354,6 +351,7 @@ function AgentSidebar({
   const lastTitleUpdateRef = useRef<TitleUpdatePayload | null>(null);
   const hasLoadedChatRef = useRef<string | null>(null);
   const isRestoringFromDBRef = useRef(false);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   // Load messages when active chat data arrives
   useEffect(() => {
@@ -361,11 +359,14 @@ function AgentSidebar({
       hasLoadedChatRef.current = activeChatData.chatId;
       isRestoringFromDBRef.current = true;
       if (activeChatData.messages.length > 0) {
-        const restored = activeChatData.messages.map((m) => ({
-          id: m.messageId,
-          role: m.role as "user" | "assistant",
-          parts: m.parts as MyUIMessage["parts"],
-        })) as MyUIMessage[];
+        const restored = activeChatData.messages.map((m) => {
+          seenMessageIdsRef.current.add(m.messageId);
+          return {
+            id: m.messageId,
+            role: m.role as "user" | "assistant",
+            parts: m.parts as MyUIMessage["parts"],
+          };
+        }) as MyUIMessage[];
         setMessages(restored);
       } else {
         setMessages([]);
@@ -641,12 +642,17 @@ function AgentSidebar({
                 )}
               </div>
             ) : (
-              messages.map((message) => {
+              messages.map((message, index) => {
+                const isHistorical = seenMessageIdsRef.current.has(message.id);
+                // Also, any message that is NOT the last one is definitely fully generated
+                const isOld = isHistorical || index < messages.length - 1;
+
                 return (
                   <MessageBubble
                     parts={message.parts}
                     key={message.id}
                     message={message}
+                    isOld={isOld}
                   />
                 );
               })

@@ -383,11 +383,7 @@ function WriteClient() {
     }
   };
 
-  /**
-   * Handles AI-generated editor updates — parses the structured JSON output
-   * from the AI and applies line-level changes via the editor's imperative handle.
-   * Falls back to full-document replace if parsing fails.
-   */
+
   const handleAIEditorUpdate = ({
     id,
     status,
@@ -522,7 +518,6 @@ function WriteClient() {
                   </Button>
                 </button>
               )}
-              {/* </div> */}
               <MyEditor
                 ref={editorRef}
                 onChange={handleChange}

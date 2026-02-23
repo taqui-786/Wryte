@@ -34,10 +34,7 @@ export default function AgentRecentChatsPreview({
                 {chat.title || "New Chat"}
               </p>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {formatRelativeTime(chat.updatedAt)}
-                </p>
-                {isThisLoading && (
+                {isThisLoading ? (
                   <span className="flex w-fit gap-1 text-xs items-center justify-center text-muted-foreground">
                     <HugeiconsIcon
                       icon={Loading03Icon}
@@ -45,6 +42,10 @@ export default function AgentRecentChatsPreview({
                     />
                     Loading...
                   </span>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelativeTime(chat.updatedAt)}
+                  </p>
                 )}
               </div>
             </button>

@@ -2,6 +2,7 @@
 
 import React, {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -21,6 +22,8 @@ import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
 import { EditorView } from "prosemirror-view";
 import { createEditorState } from "./EditorConfig";
 import { EditorState } from "prosemirror-state";
+import { useCompletion } from "@ai-sdk/react";
+import type { AutocompleteRequest } from "./MyPlugins";
 // @ts-ignore
 import "./myEditorStyle.css";
 import { marked } from "marked";
@@ -74,6 +77,43 @@ const MyEditor = forwardRef<
   const lastEditorValueRef = useRef<string | null>(null);
   const isApplyingExternalUpdateRef = useRef(false);
   const pendingExternalValueRef = useRef<string | null>(null);
+  const { complete } = useCompletion({
+    api: "/api/completion",
+    streamProtocol: "text",
+  });
+  const completeRef = useRef(complete);
+
+  useEffect(() => {
+    completeRef.current = complete;
+  }, [complete]);
+
+  const requestAutocomplete = useCallback<AutocompleteRequest>(
+    async ({ context, node, endWithSpace, lastWord, isIncompleteWord }) => {
+      const rawCompletion = await completeRef.current(context, {
+        body: {
+          node,
+          endWithSpace,
+          lastWord,
+          isIncompleteWord,
+          minWords: isIncompleteWord ? 1 : 2,
+        },
+      });
+
+      let completion = rawCompletion ?? "";
+      const contextEndsWithSpace = /\s$/.test(context);
+
+      if (contextEndsWithSpace) {
+        completion = completion.replace(/^\s+/, "");
+      } else if (endWithSpace) {
+        completion = ` ${completion.replace(/^\s+/, "")}`;
+      } else {
+        completion = completion.replace(/^\s+/, "");
+      }
+
+      return completion;
+    },
+    [],
+  );
 
   const buildAIChangeTransaction = (changes: AIChange[], baseDoc?: PMNode) => {
     const view = viewRef.current;
@@ -238,6 +278,7 @@ const MyEditor = forwardRef<
       mySchema,
       viewRef,
       null,
+      requestAutocomplete,
       handleInternalChange,
     );
 
