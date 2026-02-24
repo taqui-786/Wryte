@@ -9,14 +9,7 @@ import {
 } from "prosemirror-inputrules";
 import { NodeType, Schema, MarkType, Mark } from "prosemirror-model";
 import { EditorState, Transaction } from "prosemirror-state";
-import { marked } from "marked"; // lightweight tokenizer
 import { defaultMarkdownParser, MarkdownParser } from "prosemirror-markdown";
-
-// Configure marked to return tokens only, NOT HTML
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
 /**
  * LLM Data for Markdown Formatting Rules
  *

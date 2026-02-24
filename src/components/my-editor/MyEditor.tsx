@@ -63,6 +63,69 @@ const mySchema = new Schema({
   },
   marks,
 });
+
+const MARKED_PARSE_OPTIONS = {
+  gfm: true,
+  breaks: false,
+} as const;
+
+const parseMarkdownToHtml = (markdown: string) =>
+  marked.parse(markdown, MARKED_PARSE_OPTIONS) as string;
+
+const splitParagraphNodeAtHardBreaks = (
+  paragraph: PMNode,
+  schema: Schema,
+): PMNode[] => {
+  const chunks: PMNode[][] = [[]];
+
+  paragraph.forEach((child) => {
+    if (child.type === schema.nodes.hard_break) {
+      chunks.push([]);
+      return;
+    }
+    chunks[chunks.length - 1].push(child);
+  });
+
+  return chunks.map((chunk) =>
+    schema.nodes.paragraph.create(
+      paragraph.attrs,
+      chunk.length ? Fragment.fromArray(chunk) : undefined,
+      paragraph.marks,
+    ),
+  );
+};
+
+const normalizeHardBreakParagraphs = (node: PMNode, schema: Schema): PMNode => {
+  const normalizeNode = (current: PMNode): PMNode[] => {
+    if (current.type === schema.nodes.paragraph) {
+      let containsHardBreak = false;
+      current.forEach((child) => {
+        if (child.type === schema.nodes.hard_break) containsHardBreak = true;
+      });
+
+      if (containsHardBreak) {
+        return splitParagraphNodeAtHardBreaks(current, schema);
+      }
+    }
+
+    if (current.isLeaf) return [current];
+
+    const normalizedChildren: PMNode[] = [];
+    current.forEach((child) => {
+      normalizedChildren.push(...normalizeNode(child));
+    });
+
+    const rebuilt = current.type.createChecked(
+      current.attrs,
+      Fragment.fromArray(normalizedChildren),
+      current.marks,
+    );
+
+    return [rebuilt];
+  };
+
+  return normalizeNode(node)[0];
+};
 const MyEditor = forwardRef<
   MyEditorHandle,
   {
@@ -155,10 +218,7 @@ const MyEditor = forwardRef<
         for (let i = 0; i < idx; i++) pos += doc.child(i).nodeSize;
 
         // Parse the new content as HTML → ProseMirror fragment
-        const html = marked.parse(change.content) as string;
-        const temp = document.createElement("div");
-        temp.innerHTML = html;
-        const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+        const parsed = parseMarkdownToDoc(change.content);
         tr = tr.replaceWith(pos, pos + child.nodeSize, parsed.content);
       } else if (change.type === "insert") {
         // Insert AFTER the node at `line - 1`.
@@ -173,10 +233,7 @@ const MyEditor = forwardRef<
           for (let i = 0; i <= clampedIdx; i++) pos += doc.child(i).nodeSize;
         }
 
-        const html = marked.parse(change.content) as string;
-        const temp = document.createElement("div");
-        temp.innerHTML = html;
-        const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+        const parsed = parseMarkdownToDoc(change.content);
         tr = tr.insert(pos, parsed.content);
       }
     }
@@ -185,10 +242,11 @@ const MyEditor = forwardRef<
   };
 
   const parseMarkdownToDoc = (markdown: string) => {
-    const html = marked.parse(markdown);
+    const html = parseMarkdownToHtml(markdown);
     const temp = document.createElement("div");
     temp.innerHTML = html as string;
-    return DOMParser.fromSchema(mySchema).parse(temp);
+    const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+    return normalizeHardBreakParagraphs(parsed, mySchema);
   };
 
   const applyExternalValue = (nextValue: string) => {
@@ -205,13 +263,7 @@ const MyEditor = forwardRef<
     )
       return;
     try {
-      // Convert markdown -> HTML
-      const html = marked.parse(nextValue);
-      // Parse HTML -> ProseMirror doc
-      const parser = DOMParser.fromSchema(mySchema);
-      const temp = document.createElement("div");
-      temp.innerHTML = html as string;
-      const newDoc = parser.parse(temp);
+      const newDoc = parseMarkdownToDoc(nextValue);
 
       // Replace the editor content
       isApplyingExternalUpdateRef.current = true;
@@ -291,7 +343,7 @@ const MyEditor = forwardRef<
     const view = new EditorView(editorRef.current, {
       state,
       attributes: {
-        class: "prose-editor",
+        class: "prose-editor shadcn-typography",
       },
       handleDOMEvents: {
         focus: () => {
@@ -303,20 +355,32 @@ const MyEditor = forwardRef<
           return false;
         },
       },
-      handlePaste(view, event, slice) {
-        const text = event.clipboardData?.getData("text/plain");
-        if (text) {
-          const html = marked.parse(text) as string;
+      handlePaste(view, event) {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
+
+        const html = clipboardData.getData("text/html");
+        if (html && html.trim()) {
           const temp = document.createElement("div");
           temp.innerHTML = html;
-          const parsedDoc = DOMParser.fromSchema(mySchema).parse(temp);
+          const parsed = DOMParser.fromSchema(mySchema).parse(temp);
+          const normalized = normalizeHardBreakParagraphs(parsed, mySchema);
           const tr = view.state.tr.replaceSelection(
-            new Slice(parsedDoc.content, 0, 0),
+            new Slice(normalized.content, 0, 0),
           );
           view.dispatch(tr);
           return true;
         }
-        return false;
+
+        const text = clipboardData.getData("text/plain");
+        if (!text) return false;
+
+        const parsedDoc = parseMarkdownToDoc(text);
+        const tr = view.state.tr.replaceSelection(
+          new Slice(parsedDoc.content, 0, 0),
+        );
+        view.dispatch(tr);
+        return true;
       },
 
       dispatchTransaction: (transaction) => {
