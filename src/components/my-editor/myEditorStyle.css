@@ -20,6 +20,12 @@
 .ProseMirror em {
   font-style: italic;
 }
+.ProseMirror u {
+  text-decoration: underline;
+}
+.ProseMirror s {
+  text-decoration: line-through;
+}
 .ProseMirror code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.9em;
@@ -62,10 +68,9 @@
   font-size: 1.5em;
 }
 .ProseMirror.prose-editor > * {
-  margin-top: 0.25rem;   /* space above each element */
+  margin-top: 0.25rem; /* space above each element */
   margin-bottom: 0.25rem; /* space below each element */
 }
-
 
 .ProseMirror.prose-editor > *:first-child {
   margin-top: 0; /* no extra space on top of first element */
@@ -356,7 +361,7 @@ li.ProseMirror-selectednode:after {
   position: relative;
 
   height: 6px;
-margin: 12px 0;
+  margin: 12px 0;
   border: none;
 }
 
@@ -468,9 +473,8 @@ margin: 12px 0;
 
 .ProseMirror ul {
   list-style: disc;
-
 }
 .ProseMirror hr {
-margin: 12px 0;
+  margin: 12px 0;
   border: 2px solid var(--color-border);
 }

@@ -97,7 +97,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html lang="en" className={dmSans.variable} suppressHydrationWarning={true}>
       <body className="antialiased">
         {children}
         <Toaster richColors={true} />

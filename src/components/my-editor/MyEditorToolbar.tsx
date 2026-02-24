@@ -35,6 +35,11 @@ interface TestingToolbarProps {
   isLocked?: boolean;
 }
 
+// Prevent editor from losing focus when clicking toolbar buttons
+const preventFocusLoss = (e: React.MouseEvent) => {
+  e.preventDefault();
+};
+
 export function MyEditorToolbar({
   viewRef,
   mySchema,
@@ -321,6 +326,7 @@ export function MyEditorToolbar({
           <Button
             type="button"
             onClick={undoAction}
+            onMouseDown={preventFocusLoss}
             className={""}
             title="Undo (Ctrl+Z)"
             size={"icon-sm"}
@@ -334,6 +340,7 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={redoAction}
+            onMouseDown={preventFocusLoss}
             className={""}
             title="Redo (Ctrl+Y)"
             disabled={isDisabled}
@@ -348,6 +355,7 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleBold}
+            onMouseDown={preventFocusLoss}
             className={"tool-strong"}
             title="Bold (Ctrl+B)"
             disabled={isDisabled}
@@ -359,6 +367,7 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleItalic}
+            onMouseDown={preventFocusLoss}
             className={"tool-em"}
             title="Italic (Ctrl+I)"
             disabled={isDisabled}
@@ -371,8 +380,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleUnderline}
+            onMouseDown={preventFocusLoss}
             className={"tool-underline"}
-            title="underline (Ctrl+`)"
+            title="Underline (Ctrl+U)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={TextUnderlineIcon} size="16" />
@@ -382,8 +392,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleStrike}
+            onMouseDown={preventFocusLoss}
             className={"tool-strike"}
-            title="strike (Ctrl+`)"
+            title="Strikethrough (Ctrl+D)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={TextStrikethroughIcon} size="16" />
@@ -398,6 +409,7 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleCode}
+            onMouseDown={preventFocusLoss}
             className={"tool-code"}
             title="Inline Code (Ctrl+`)"
             disabled={isDisabled}
@@ -412,8 +424,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={() => toggleHeading(1)}
+            onMouseDown={preventFocusLoss}
             className={"tool-heading1"}
-            title="Heading 1"
+            title="Heading 1 (Ctrl+Alt+1)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={Heading01Icon} size="16" />
@@ -423,8 +436,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={() => toggleHeading(2)}
+            onMouseDown={preventFocusLoss}
             className={"tool-heading2"}
-            title="Heading 2"
+            title="Heading 2 (Ctrl+Alt+2)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={Heading02Icon} size="16" />
@@ -434,8 +448,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={() => toggleHeading(3)}
+            onMouseDown={preventFocusLoss}
             className={"tool-heading3"}
-            title="Heading 2"
+            title="Heading 3 (Ctrl+Alt+3)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={Heading03Icon} size="16" />
@@ -447,8 +462,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleNumberedList}
+            onMouseDown={preventFocusLoss}
             className={"tool-ordered_list"}
-            title="Number List"
+            title="Numbered List (Ctrl+Shift+7)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={LeftToRightListNumberIcon} size="16" />
@@ -458,8 +474,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleBulletedList}
+            onMouseDown={preventFocusLoss}
             className={"tool-bullet_list"}
-            title="Number List"
+            title="Bullet List (Ctrl+Shift+8)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={ParagraphBulletsPoint01Icon} size="16" />
@@ -471,8 +488,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleCodeBlock}
+            onMouseDown={preventFocusLoss}
             className={"tool-code_block"}
-            title="Inline Code (Ctrl+`)"
+            title="Code Block (Ctrl+Shift+C)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={SourceCodeSquareIcon} size="16" />
@@ -483,8 +501,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleQuote}
+            onMouseDown={preventFocusLoss}
             className={"tool-blockquote"}
-            title="Quote"
+            title="Blockquote (Ctrl+Shift+B)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={QuoteDownIcon} size="16" />
@@ -494,8 +513,9 @@ export function MyEditorToolbar({
             variant={"ghost"}
             type="button"
             onClick={toggleDivider}
+            onMouseDown={preventFocusLoss}
             className={"tool-hr"}
-            title="Number List"
+            title="Horizontal Rule (Ctrl+Shift+H)"
             disabled={isDisabled}
           >
             <HugeiconsIcon icon={MinusSignIcon} size="16" />

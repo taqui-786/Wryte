@@ -1,7 +1,13 @@
 import { EditorState, Plugin } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
-import { baseKeymap, toggleMark } from "prosemirror-commands";
+import {
+  baseKeymap,
+  toggleMark,
+  setBlockType,
+  wrapIn,
+  lift,
+} from "prosemirror-commands";
 import { history, undo, redo } from "prosemirror-history";
 import {
   autocompletePlugin,
@@ -16,6 +22,7 @@ import {
   splitListItem,
   liftListItem,
   sinkListItem,
+  wrapInList,
 } from "prosemirror-schema-list";
 import { DOMParser } from "prosemirror-model";
 import {
@@ -95,6 +102,7 @@ export function createEditorState(
   }
 
   const editorKeymap = keymap({
+    // Undo / Redo
     "Mod-z": (state, dispatch) => {
       if (viewRef.current) {
         const result = undo(state, dispatch);
@@ -111,6 +119,8 @@ export function createEditorState(
       }
       return false;
     },
+
+    // Mark toggles
     "Mod-b": (state, dispatch) => {
       if (viewRef.current) {
         const result = toggleMark(mySchema.marks.strong)(state, dispatch);
@@ -127,11 +137,166 @@ export function createEditorState(
       }
       return false;
     },
+    "Mod-u": (state, dispatch) => {
+      if (viewRef.current) {
+        const result = toggleMark(mySchema.marks.underline)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+    "Mod-d": (state, dispatch) => {
+      if (viewRef.current) {
+        const result = toggleMark(mySchema.marks.strike)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
     "Mod-`": (state, dispatch) => {
       if (viewRef.current) {
         const result = toggleMark(mySchema.marks.code)(state, dispatch);
         if (result) viewRef.current.focus();
         return result;
+      }
+      return false;
+    },
+
+    // Headings
+    "Mod-Alt-1": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        const node = $head.parent;
+        const result =
+          node.type === mySchema.nodes.heading && node.attrs.level === 1
+            ? setBlockType(mySchema.nodes.paragraph)(state, dispatch)
+            : setBlockType(mySchema.nodes.heading, { level: 1 })(
+                state,
+                dispatch,
+              );
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+    "Mod-Alt-2": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        const node = $head.parent;
+        const result =
+          node.type === mySchema.nodes.heading && node.attrs.level === 2
+            ? setBlockType(mySchema.nodes.paragraph)(state, dispatch)
+            : setBlockType(mySchema.nodes.heading, { level: 2 })(
+                state,
+                dispatch,
+              );
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+    "Mod-Alt-3": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        const node = $head.parent;
+        const result =
+          node.type === mySchema.nodes.heading && node.attrs.level === 3
+            ? setBlockType(mySchema.nodes.paragraph)(state, dispatch)
+            : setBlockType(mySchema.nodes.heading, { level: 3 })(
+                state,
+                dispatch,
+              );
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+
+    // Lists
+    "Mod-Shift-7": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        let inOrderedList = false;
+        for (let d = $head.depth; d > 0; d--) {
+          if ($head.node(d).type === mySchema.nodes.ordered_list) {
+            inOrderedList = true;
+            break;
+          }
+        }
+        const result = inOrderedList
+          ? liftListItem(mySchema.nodes.list_item)(state, dispatch)
+          : wrapInList(mySchema.nodes.ordered_list)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+    "Mod-Shift-8": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        let inBulletList = false;
+        for (let d = $head.depth; d > 0; d--) {
+          if ($head.node(d).type === mySchema.nodes.bullet_list) {
+            inBulletList = true;
+            break;
+          }
+        }
+        const result = inBulletList
+          ? liftListItem(mySchema.nodes.list_item)(state, dispatch)
+          : wrapInList(mySchema.nodes.bullet_list)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+
+    // Code Block
+    "Mod-Shift-c": (state, dispatch) => {
+      if (viewRef.current) {
+        const { $head } = state.selection;
+        const node = $head.parent;
+        const result =
+          node.type === mySchema.nodes.code_block
+            ? setBlockType(mySchema.nodes.paragraph)(state, dispatch)
+            : setBlockType(mySchema.nodes.code_block)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+
+    // Blockquote
+    "Mod-Shift-b": (state, dispatch) => {
+      if (viewRef.current) {
+        let inBlockquote = false;
+        const { $head } = state.selection;
+        for (let d = $head.depth; d > 0; d--) {
+          if ($head.node(d).type === mySchema.nodes.blockquote) {
+            inBlockquote = true;
+            break;
+          }
+        }
+        const result = inBlockquote
+          ? lift(state, dispatch)
+          : wrapIn(mySchema.nodes.blockquote)(state, dispatch);
+        if (result) viewRef.current.focus();
+        return result;
+      }
+      return false;
+    },
+
+    // Horizontal Rule
+    "Mod-Shift-h": (state, dispatch) => {
+      if (viewRef.current) {
+        if (dispatch) {
+          dispatch(
+            state.tr
+              .replaceSelectionWith(mySchema.nodes.horizontal_rule.create())
+              .scrollIntoView(),
+          );
+        }
+        viewRef.current.focus();
+        return true;
       }
       return false;
     },
@@ -179,7 +344,6 @@ export function createEditorState(
     plugins: [
       history(),
       buildInputRules(mySchema),
-      //   menuBar({ floating: true, content: buildMenuItems(mySchema).fullMenu }), // just for tesing
       editorKeymap,
       keymap({
         Enter: splitListItem(mySchema.nodes.list_item),

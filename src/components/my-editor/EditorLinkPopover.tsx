@@ -19,7 +19,11 @@ interface LinkPopoverProps {
   isLocked?: boolean;
 }
 
-function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverProps) {
+function EditorLinkPopover({
+  viewRef,
+  mySchema,
+  isLocked = false,
+}: LinkPopoverProps) {
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
   const [linkHref, setLinkHref] = useState("");
   const [linkTitle, setLinkTitle] = useState("");
@@ -117,7 +121,7 @@ function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverP
             const resolvedPos = state.doc.resolve(pos);
             const marks = resolvedPos.marks();
             const hasMatchingLink = marks.some(
-              (m: any) => m.type === markType && m.eq(linkMark)
+              (m: any) => m.type === markType && m.eq(linkMark),
             );
             if (hasMatchingLink) {
               start = pos;
@@ -133,7 +137,7 @@ function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverP
             const resolvedPos = state.doc.resolve(pos);
             const marks = resolvedPos.marks();
             const hasMatchingLink = marks.some(
-              (m: any) => m.type === markType && m.eq(linkMark)
+              (m: any) => m.type === markType && m.eq(linkMark),
             );
             if (hasMatchingLink) {
               end = pos + 1;
@@ -171,22 +175,17 @@ function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverP
         .addMark(from, to, markType.create(attrs));
       dispatch(tr);
     } else {
-    
       if (empty) {
-
         const displayText = linkTitle.trim() || linkHref.trim();
         const linkMark = markType.create(attrs);
         const linkNode = mySchema.text(displayText, [linkMark]);
 
-   
         const tr = state.tr
           .replaceSelectionWith(linkNode, false)
           .insertText(" ");
 
-   
         dispatch(tr.removeStoredMark(markType));
       } else {
-     
         toggleMark(markType, attrs)(state, dispatch);
       }
     }
@@ -200,7 +199,6 @@ function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverP
       window.open(linkHref.trim(), "_blank", "noopener,noreferrer");
     }
   };
-
 
   const isValidUrl = (url: string) => {
     try {
@@ -219,8 +217,9 @@ function EditorLinkPopover({ viewRef, mySchema, isLocked = false }: LinkPopoverP
           variant={"ghost"}
           type="button"
           onClick={toggleLink}
+          onMouseDown={(e) => e.preventDefault()}
           className="tool-link"
-          title="Add/Edit Link"
+          title="Link (Ctrl+K)"
           disabled={isLocked}
         >
           <LinkSolid size={"16"} />
