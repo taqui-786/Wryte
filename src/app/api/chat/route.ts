@@ -9,7 +9,12 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
-import { editorTitleTool, editorWriteTool, weatherTool } from "@/lib/tools";
+import {
+  editorTitleTool,
+  editorWriteTool,
+  weatherTool,
+  createSharedEditorState,
+} from "@/lib/tools";
 import { saveAgentMessages } from "@/lib/serverAction";
 import { assistentPrompt } from "@/lib/prompt-utils";
 export type Metadata = {
@@ -123,15 +128,19 @@ export async function POST(req: Request) {
     execute: async ({ writer }) => {
       const get_weather_tool = weatherTool({ writer });
 
+      const sharedState = createSharedEditorState();
+
       const write_in_editor_tool = editorWriteTool({
         writer,
         editorContent,
         editorMarkdown,
+        sharedState,
       });
       const write_title_tool = editorTitleTool({
         writer,
         editorContent,
         editorMarkdown,
+        sharedState,
       });
       const result = streamText({
         model: groq("openai/gpt-oss-20b"),

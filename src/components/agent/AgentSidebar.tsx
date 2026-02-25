@@ -570,6 +570,14 @@ function AgentSidebar({
     }
   }, [messages, isThinking]);
 
+  useEffect(()=>{
+if(!docId){
+  setActiveChatId(null)
+  setMessages([])
+}
+  },[docId])
+  console.log({messages});
+  
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Heading */}

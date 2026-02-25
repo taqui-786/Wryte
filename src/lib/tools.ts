@@ -3,6 +3,15 @@ import { nanoid } from "nanoid";
 import z from "zod";
 import { getCoordinates, getWeather } from "@/lib/serverAction";
 import { groq } from "@ai-sdk/groq";
+
+// Shared mutable state so the title tool can see content written by the editor tool
+export type SharedEditorState = {
+  lastWrittenContent: string | null;
+};
+
+export function createSharedEditorState(): SharedEditorState {
+  return { lastWrittenContent: null };
+}
 export const weatherTool = ({ writer }: { writer: UIMessageStreamWriter }) => {
   return tool({
     description: "Get the real weather for a location",
@@ -125,10 +134,12 @@ export const editorWriteTool = ({
   writer,
   editorContent,
   editorMarkdown,
+  sharedState,
 }: {
   writer: UIMessageStreamWriter;
   editorContent?: string;
   editorMarkdown?: string;
+  sharedState: SharedEditorState;
 }) => {
   return tool({
     description:
@@ -233,6 +244,10 @@ ${contextBlocks.join("\n\n")}
       }
 
       const finalText = fullText.trim();
+
+      // Store written content so the title tool can use it
+      sharedState.lastWrittenContent = finalText;
+
       writer.write({
         type: "data-editor-update",
         id: generationId,
@@ -252,10 +267,12 @@ export const editorTitleTool = ({
   writer,
   editorContent,
   editorMarkdown,
+  sharedState,
 }: {
   writer: UIMessageStreamWriter;
   editorContent?: string;
   editorMarkdown?: string;
+  sharedState: SharedEditorState;
 }) => {
   return tool({
     description: "Generate a concise, relevant title for the current document.",
@@ -278,7 +295,13 @@ export const editorTitleTool = ({
       });
 
       const contextBlocks: string[] = [];
-      if (editorMarkdown?.trim()) {
+
+      // Prefer freshly written content from the editor tool (same request)
+      if (sharedState.lastWrittenContent) {
+        contextBlocks.push(
+          `Current document (just written):\n${sharedState.lastWrittenContent}`,
+        );
+      } else if (editorMarkdown?.trim()) {
         contextBlocks.push(
           `Current document (Markdown):\n${editorMarkdown.trim()}`,
         );
