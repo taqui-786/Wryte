@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { MyUIMessage } from "@/app/api/chat/route";
 import {
   useGetAgentChatMessages,
@@ -28,14 +29,13 @@ import { StreamingMessage } from "../ai-elements/streaming-message";
 import { PlusIcon } from "../UserSidebar";
 import { Button } from "../ui/button";
 import { Markdown } from "../ui/markdown";
+import { Skeleton } from "../ui/skeleton";
 import AgentRecentChatsPreview from "./agent-sidebar/AgentRecentChatsPreview";
 import type {
   EditorUpdatePayload,
   TitleUpdatePayload,
 } from "./ai-update-types";
 import { buildEditorContentFromMarkdown } from "./editor-content";
-import { Skeleton } from "../ui/skeleton";
-import { toast } from "sonner";
 
 const AgentHistoryPanel = dynamic(
   () => import("./agent-sidebar/AgentHistoryPanel"),
@@ -308,6 +308,7 @@ function AgentSidebar({
   editorMarkdown,
   onEditorUpdate,
   onTitleUpdate,
+  onPersistableChatChange,
   editorHeading,
   docId,
 }: {
@@ -315,6 +316,14 @@ function AgentSidebar({
   editorHeading: string;
   onEditorUpdate?: (payload: EditorUpdatePayload) => void;
   onTitleUpdate?: (payload: TitleUpdatePayload) => void;
+  onPersistableChatChange?: (payload: {
+    activeChatId: string | null;
+    messages: Array<{
+      id: string;
+      role: "user" | "assistant";
+      parts: unknown;
+    }>;
+  }) => void;
   docId?: string;
 }) {
   const [viewHistory, setViewHistory] = useState(false);
@@ -570,14 +579,30 @@ function AgentSidebar({
     }
   }, [messages, isThinking]);
 
-  useEffect(()=>{
-if(!docId){
-  setActiveChatId(null)
-  setMessages([])
-}
-  },[docId])
-  console.log({messages});
-  
+  useEffect(() => {
+    if (!docId) {
+      setActiveChatId(null);
+      setMessages([]);
+    }
+  }, [docId, setMessages]);
+
+  useEffect(() => {
+    if (!onPersistableChatChange) return;
+
+    onPersistableChatChange({
+      activeChatId,
+      messages: messages
+        .filter(
+          (message) => message.role === "user" || message.role === "assistant",
+        )
+        .map((message) => ({
+          id: message.id,
+          role: message.role,
+          parts: message.parts,
+        })),
+    });
+  }, [activeChatId, messages, onPersistableChatChange]);
+
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Heading */}

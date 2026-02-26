@@ -2,17 +2,29 @@ import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { createRoot, Root } from "react-dom/client";
 import { Button } from "@/components/ui/button";
-import { Bold, Code, Italic, Strikethrough, Underline } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import EditorLinkPopover from "./EditorLinkPopover";
 import { toolMarkInactive } from "./helper";
 import {
-  BoldSolid,
-  CodeSolid,
-  ItalicsSolid,
-  StrikeThroughSolid,
-  UnderlineSolid,
-} from "./editorIcons";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  AiContentGenerator01Icon,
+  AiMagicIcon,
+  CodeSimpleIcon,
+  ExpandParagraphIcon,
+  ReduceParagraphIcon,
+  TextBoldIcon,
+  TextItalicIcon,
+  TextStrikethroughIcon,
+  TextUnderlineIcon,
+} from "@hugeicons/core-free-icons";
+import { runSelectionTransform } from "./editorAiSelectionTools";
 
 class SelectionSizeTooltip {
   tooltip: HTMLDivElement;
@@ -41,7 +53,7 @@ class SelectionSizeTooltip {
         <Button variant="ghost" size="sm">
           0
         </Button>
-      </div>
+      </div>,
     );
 
     this.update(view, null);
@@ -95,7 +107,7 @@ class SelectionSizeTooltip {
     const toggleBold = () => {
       const result = toggleMark(this.view.state.schema.marks.strong)(
         this.view.state,
-        this.view.dispatch
+        this.view.dispatch,
       );
       if (result) {
         toolMarkInactive("tool-strong");
@@ -112,7 +124,7 @@ class SelectionSizeTooltip {
     const toggleItalic = () => {
       const result = toggleMark(this.view.state.schema.marks.em)(
         this.view.state,
-        this.view.dispatch
+        this.view.dispatch,
       );
       if (result) {
         toolMarkInactive("tool-em");
@@ -129,7 +141,7 @@ class SelectionSizeTooltip {
     const toggleCode = () => {
       const result = toggleMark(this.view.state.schema.marks.code)(
         this.view.state,
-        this.view.dispatch
+        this.view.dispatch,
       );
       if (result) {
         toolMarkInactive("tool-code");
@@ -146,7 +158,7 @@ class SelectionSizeTooltip {
     const toggleUnderline = () => {
       const result = toggleMark(this.view.state.schema.marks.underline)(
         this.view.state,
-        this.view.dispatch
+        this.view.dispatch,
       );
       if (result) {
         toolMarkInactive("tool-underline");
@@ -163,7 +175,7 @@ class SelectionSizeTooltip {
     const toggleStrike = () => {
       const result = toggleMark(this.view.state.schema.marks.strike)(
         this.view.state,
-        this.view.dispatch
+        this.view.dispatch,
       );
       if (result) {
         toolMarkInactive("tool-strike");
@@ -200,6 +212,11 @@ class SelectionSizeTooltip {
     }
 
     // ✅ React re-render with updated content
+    const runAiSelectionAction = async (action: "shorten" | "expand") => {
+      this.tooltip.style.display = "none";
+      await runSelectionTransform(this.view, action);
+    };
+
     this.root.render(
       <div className="flex items-center gap-1">
         <Button
@@ -210,7 +227,7 @@ class SelectionSizeTooltip {
           onClick={toggleBold}
           title="Bold (Ctrl+B)"
         >
-          <BoldSolid size={"16"} />
+          <HugeiconsIcon icon={TextBoldIcon} size="16" />
         </Button>
         <Button
           size={"icon-sm"}
@@ -220,17 +237,7 @@ class SelectionSizeTooltip {
           className={"tool-em"}
           title="Italic (Ctrl+I)"
         >
-          <ItalicsSolid size={"16"} />
-        </Button>
-        <Button
-          size={"icon-sm"}
-          variant={"ghost"}
-          type="button"
-          onClick={toggleCode}
-          className={"tool-code"}
-          title="Inline Code (Ctrl+`)"
-        >
-          <CodeSolid size={"16"} />
+          <HugeiconsIcon icon={TextItalicIcon} size="16" />
         </Button>
         <Button
           size={"icon-sm"}
@@ -240,8 +247,19 @@ class SelectionSizeTooltip {
           className={"tool-underline"}
           title="underline (Ctrl+`)"
         >
-          <UnderlineSolid size={"16"} />
+          <HugeiconsIcon icon={TextUnderlineIcon} size="16" />
         </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          onClick={toggleCode}
+          className={"tool-code"}
+          title="Inline Code (Ctrl+`)"
+        >
+          <HugeiconsIcon icon={CodeSimpleIcon} size="16" />
+        </Button>
+
         <Button
           size={"icon-sm"}
           variant={"ghost"}
@@ -250,13 +268,51 @@ class SelectionSizeTooltip {
           className={"tool-strike"}
           title="strike (Ctrl+`)"
         >
-          <StrikeThroughSolid size={"16"} />
+          <HugeiconsIcon icon={TextStrikethroughIcon} size="16" />
         </Button>
         <EditorLinkPopover
           viewRef={{ current: this.view } as any}
           mySchema={this.view.state.schema}
         />
-      </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost">
+              {" "}
+              <HugeiconsIcon icon={AiMagicIcon} size="16" />
+              use Ai
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onSelect={() => {
+                  window.setTimeout(() => {
+                    void runAiSelectionAction("shorten");
+                  }, 0);
+                }}
+              >
+                {" "}
+                <HugeiconsIcon icon={ReduceParagraphIcon} size="16" />
+                Shorten
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  window.setTimeout(() => {
+                    void runAiSelectionAction("expand");
+                  }, 0);
+                }}
+              >
+                {" "}
+                <HugeiconsIcon icon={ExpandParagraphIcon} size="16" /> Expand
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <HugeiconsIcon icon={AiContentGenerator01Icon} size="16" />
+                Summarize
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>,
     );
   }
 

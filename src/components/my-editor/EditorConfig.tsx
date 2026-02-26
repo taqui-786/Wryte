@@ -18,6 +18,7 @@ import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { buildInputRules } from "./EditorInputRules";
 import { selectionSizeTooltipPlugin } from "./EditorSelectionMenu";
+import { selectionAiProcessingPlugin } from "./editorAiSelectionTools";
 import {
   splitListItem,
   liftListItem,
@@ -357,6 +358,7 @@ export function createEditorState(
       gapCursor(),
       dataLinePlugin,
       toolbarUpdatePlugin,
+      selectionAiProcessingPlugin,
       selectionSizeTooltipPlugin,
     ],
   });

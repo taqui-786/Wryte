@@ -628,3 +628,23 @@ li.ProseMirror-selectednode:after {
   text-align: left;
   border: 1px solid var(--color-border);
 }
+
+.pm-ai-selection-processing {
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  border-radius: 4px;
+  animation: pm-ai-selection-pulse 0.9s ease-in-out infinite;
+  cursor: wait;
+  pointer-events: none;
+}
+
+@keyframes pm-ai-selection-pulse {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}

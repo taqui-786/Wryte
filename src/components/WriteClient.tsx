@@ -1,14 +1,19 @@
 "use client";
+import { Edit03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { parseAsString, useQueryState } from "nuqs";
-import { HugeiconsIcon } from "@hugeicons/react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCreateDoc } from "@/lib/queries/createDocQuery";
 import { useUpdateDoc } from "@/lib/queries/updateDocQuery";
-import { getDocsById } from "@/lib/serverAction";
+import {
+  createAgentChat,
+  getDocsById,
+  saveAgentMessages,
+} from "@/lib/serverAction";
 import AgentSidebarLoading from "./agent/AgentSidebarLoading";
 import {
   buildMarkdownFromInsertChanges,
@@ -24,6 +29,7 @@ import type {
 import WriteClientActions from "./agent/WriteClientActions";
 import DeletePageDailog from "./DeletePageDailog";
 import MyEditor, { type MyEditorHandle } from "./my-editor/MyEditor";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   ResizableHandle,
@@ -32,12 +38,6 @@ import {
 } from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
 import WriteClientSkeleton from "./ui/WriteClientSkeleton";
-import {
-  Edit01Icon,
-  Edit03Icon,
-  PencilEdit01Icon,
-} from "@hugeicons/core-free-icons";
-import { Button } from "./ui/button";
 
 const AgentSidebar = dynamic(() => import("./agent/AgentSidebar"), {
   loading: () => <AgentSidebarLoading />,
@@ -55,6 +55,7 @@ function WriteClient() {
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isAIApplying, setIsAIApplying] = useState(false);
   const saveTimeoutRef = useRef<number | null>(null);
+  const currentDocIdRef = useRef<string | null>(null);
   const latestHeadingRef = useRef("");
   const lastSavedHeadingRef = useRef("");
   const [open, setOpen] = useState(false);
@@ -82,14 +83,29 @@ function WriteClient() {
   const activeDocTitle = activeDoc?.title ?? "";
   const activeDocContent = activeDoc?.content ?? "";
   const hasActiveDoc = Boolean(docs && activeDocId);
+  const agentChatDraftRef = useRef<{
+    activeChatId: string | null;
+    messages: Array<{
+      id: string;
+      role: "user" | "assistant";
+      parts: unknown;
+    }>;
+  }>({
+    activeChatId: null,
+    messages: [],
+  });
 
   useEffect(() => {
-    if (docs && activeDocId) {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
-      }
+    currentDocIdRef.current = docs ?? null;
+  }, [docs]);
 
+  useEffect(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    if (docs && activeDocId) {
       isInitialLoadRef.current = true;
       setHeading(activeDocTitle);
       setValue(activeDocContent);
@@ -178,15 +194,16 @@ function WriteClient() {
   };
 
   const queueAutoSave = (nextHeading: string, nextValue: string) => {
-    
-    if (!docs || isInitialLoadRef.current) {
+    const docId = docs;
+
+    if (!docId || isInitialLoadRef.current) {
       return;
     }
-    
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     if (
       nextHeading === lastSavedHeadingRef.current &&
       nextValue === lastSavedValueRef.current
@@ -195,16 +212,22 @@ function WriteClient() {
     }
 
     saveTimeoutRef.current = window.setTimeout(async () => {
+      if (currentDocIdRef.current !== docId) {
+        return;
+      }
+
       setIsAutoSaving(true);
 
       try {
         await updateDoc({
-          docId: docs as string,
+          docId,
           title: nextHeading,
           content: nextValue,
         });
-        lastSavedHeadingRef.current = nextHeading;
-        lastSavedValueRef.current = nextValue;
+        if (currentDocIdRef.current === docId) {
+          lastSavedHeadingRef.current = nextHeading;
+          lastSavedValueRef.current = nextValue;
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -290,7 +313,7 @@ function WriteClient() {
   };
   const handleChange = (content: string) => {
     if (content === value) return;
-    
+
     setValue(content);
     latestValueRef.current = content;
 
@@ -305,7 +328,6 @@ function WriteClient() {
     newHeading: string,
     options?: { skipAutoSave?: boolean },
   ) => {
-    
     setHeading(newHeading);
     latestHeadingRef.current = newHeading;
 
@@ -364,7 +386,25 @@ function WriteClient() {
 
   const handleCreatePost = async () => {
     if (!docs && heading && value) {
-      await createDoc({ title: heading, content: value });
+      const newDoc = await createDoc({ title: heading, content: value });
+      const draftMessages = agentChatDraftRef.current.messages;
+
+      if (newDoc?.id && draftMessages.length > 0) {
+        try {
+          const newChat = await createAgentChat(newDoc.id);
+          await saveAgentMessages(
+            newChat.id,
+            draftMessages.map((message) => ({
+              id: message.id,
+              role: message.role,
+              parts: message.parts,
+            })),
+          );
+        } catch (error) {
+          console.error("Failed to persist draft agent chat:", error);
+          toast.error("Page created, but agent chat could not be saved.");
+        }
+      }
       return;
     } else {
       if (heading.length === 0 && value.length > 0) {
@@ -383,6 +423,19 @@ function WriteClient() {
     }
   };
 
+  const handlePersistableChatChange = useCallback(
+    (payload: {
+      activeChatId: string | null;
+      messages: Array<{
+        id: string;
+        role: "user" | "assistant";
+        parts: unknown;
+      }>;
+    }) => {
+      agentChatDraftRef.current = payload;
+    },
+    [],
+  );
 
   const handleAIEditorUpdate = ({
     id,
@@ -422,7 +475,7 @@ function WriteClient() {
     if (nextMarkdown && nextMarkdown !== latestValueRef.current) {
       setValue(nextMarkdown);
       latestValueRef.current = nextMarkdown;
-      
+
       queueAutoSave(latestHeadingRef.current, nextMarkdown);
       endEditorStream(id);
       return;
@@ -467,7 +520,7 @@ function WriteClient() {
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
-      <ResizablePanel defaultSize={70}  className="max-h-[calc(100vh-4rem)]">
+      <ResizablePanel defaultSize={70} className="max-h-[calc(100vh-4rem)]">
         <ScrollArea className="h-full">
           <div className="w-full flex p-4  justify-center">
             <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
@@ -530,7 +583,7 @@ function WriteClient() {
         </ScrollArea>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={30}  className="max-h-[calc(100vh-4rem)]">
+      <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-4rem)]">
         <AgentSidebar
           editorMarkdown={latestValueRef.current}
           onEditorUpdate={(nextOutput) => {
@@ -539,6 +592,7 @@ function WriteClient() {
           onTitleUpdate={(nextTitle) => {
             handleAITitleUpdate(nextTitle);
           }}
+          onPersistableChatChange={handlePersistableChatChange}
           editorHeading={heading}
           docId={docs as string}
         />
