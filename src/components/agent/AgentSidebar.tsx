@@ -597,7 +597,7 @@ function AgentSidebar({
         )
         .map((message) => ({
           id: message.id,
-          role: message.role,
+          role: message.role as "user" | "assistant",
           parts: message.parts,
         })),
     });
