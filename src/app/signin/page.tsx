@@ -2,9 +2,10 @@
 import { Button } from "@/components/ui/button";
 import { StripedPattern } from "@/components/ui/striped-pattern";
 import { authClient, signIn, signOut } from "@/lib/authClient";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
-
+import Logo from "../../../public/logo.png";
 function page() {
   const [isLoading, setIsLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -49,12 +50,10 @@ function page() {
     <main className="h-dvh bg-background w-full flex items-center justify-center relative ">
       <StripedPattern className="[mask-image:radial-gradient(300px_circle_at_center,white,transparent)]" />
       <div className="p-2 z-50">
-        <div className="px-14 py-8">
-          <span className="text-5xl font-funnel font-semibold text-primary dark:text-primary">
-            Wryte.
-          </span>
+        <div className="px-14 py-8 flex items-center justify-center z-50">
+        <Image src={Logo} alt="Logo" width={100} height={100} className="h-auto w-40" />
         </div>
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center mt-8 z-50">
           {session ? (
             <Button onClick={handleLogout} className="w-full">
               {isLoading ? "Signing out..." : "Sign out"}
