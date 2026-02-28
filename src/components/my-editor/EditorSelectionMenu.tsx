@@ -24,7 +24,11 @@ import {
   TextStrikethroughIcon,
   TextUnderlineIcon,
 } from "@hugeicons/core-free-icons";
-import { runSelectionTransform } from "./editorAiSelectionTools";
+import {
+  readSelectionText,
+  runSelectionTransform,
+  SUMMARY_EVENT_NAME,
+} from "./editorAiSelectionTools";
 
 class SelectionSizeTooltip {
   tooltip: HTMLDivElement;
@@ -217,6 +221,17 @@ class SelectionSizeTooltip {
       await runSelectionTransform(this.view, action);
     };
 
+    const dispatchSummarizeSelection = () => {
+      this.tooltip.style.display = "none";
+      const selection = readSelectionText(this.view);
+      if (!selection) return;
+
+      const payload = new CustomEvent(SUMMARY_EVENT_NAME, {
+        detail: { text: selection },
+      });
+      window.dispatchEvent(payload);
+    };
+
     this.root.render(
       <div className="flex items-center gap-1">
         <Button
@@ -305,7 +320,11 @@ class SelectionSizeTooltip {
                 {" "}
                 <HugeiconsIcon icon={ExpandParagraphIcon} size="16" /> Expand
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  window.setTimeout(dispatchSummarizeSelection, 0);
+                }}
+              >
                 <HugeiconsIcon icon={AiContentGenerator01Icon} size="16" />
                 Summarize
               </DropdownMenuItem>

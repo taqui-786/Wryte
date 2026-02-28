@@ -85,6 +85,7 @@
     "react-hook-form": "^7.66.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.0.15",
+    "rehype-raw": "^7.0.0",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "rough-notation": "^0.5.1",

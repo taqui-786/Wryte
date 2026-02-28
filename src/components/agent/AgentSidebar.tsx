@@ -18,6 +18,7 @@ import {
   useGetAgentChatMessages,
   useGetAllAgentChats,
 } from "@/lib/queries/getAgentChatQuery";
+import { SUMMARY_EVENT_NAME } from "@/components/my-editor/editorAiSelectionTools";
 import { createAgentChat } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +37,17 @@ import type {
   TitleUpdatePayload,
 } from "./ai-update-types";
 import { buildEditorContentFromMarkdown } from "./editor-content";
+
+const sanitizeCdata = (value: string) =>
+  value.replace(/]]>/g, "]]]]><![CDATA[>");
+
+const buildSummaryPrompt = (selection: string) => {
+  const content = sanitizeCdata(selection);
+  return `<Summarize note="i want a summary of this content, here in the chat not in the editor so based in the content just give me a summary with a short parahgraph and some points with targetting the line number">
+<userMsg>Summarize this content, wryte</userMsg>
+<content><![CDATA[${content}]]></content>
+</Summarize>`;
+};
 
 const AgentHistoryPanel = dynamic(
   () => import("./agent-sidebar/AgentHistoryPanel"),
@@ -248,7 +260,31 @@ function MessageBubble({
       return false;
     });
   }, [parts]);
+function parseUserMessage(text: string) {
+  if (!/^<Summarize\b/.test(text)) {
+    return text;
+  }
 
+  const userMsg =
+    text.match(/<userMsg>(.*?)<\/userMsg>/s)?.[1] ?? "";
+
+  const content =
+    text.match(/<content><!\[CDATA\[(.*?)\]\]><\/content>/s)?.[1] ?? "";
+
+  return (
+    <>
+      <div className=" text-base mb-2">
+        {userMsg}
+      </div>
+
+      <div className="p-2 bg-muted border rounded ">
+        <div className=" text-sm text-black  line-clamp-4 ">
+        {content}
+      </div>
+      </div>
+    </>
+  );
+}
   return (
     <div
       className={`mb-4 group  flex ${isUser ? "justify-end" : "justify-start"}`}
@@ -281,7 +317,13 @@ function MessageBubble({
           if (cardProps) {
             return <ToolStatusCard key={i} index={i} props={cardProps} />;
           }
-
+if(part.type === "text" && isUser){
+  return (
+    <div className="flex flex-col" key={i}>
+    {parseUserMessage(part.text)}
+    </div>
+  );
+}
           // Final text response
           if (part.type === "text") {
             return (
@@ -332,6 +374,29 @@ function AgentSidebar({
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const ensureActiveChatId = useCallback(async () => {
+    if (!docId) {
+      toast.error("Open a document before using the agent.");
+      return null;
+    }
+
+    let chatIdToUse = activeChatId;
+    if (chatIdToUse === null) {
+      try {
+        const chat = await createAgentChat(docId);
+        chatIdToUse = chat.id;
+        setActiveChatId(chat.id);
+        hasLoadedChatRef.current = chat.id;
+        queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
+      } catch (error) {
+        console.error("Failed to create a new chat:", error);
+        toast.error("Unable to start a new chat.");
+        return null;
+      }
+    }
+
+    return chatIdToUse;
+  }, [activeChatId, docId, queryClient]);
 
   // Ai client side calling here - Taqui
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
@@ -529,14 +594,10 @@ function AgentSidebar({
       setInputValue("");
 
       setIsThinking(true);
-      let chatIdToUse = activeChatId;
-
-      if (chatIdToUse === null && docId) {
-        const chat = await createAgentChat(docId);
-        chatIdToUse = chat.id;
-        setActiveChatId(chat.id);
-        hasLoadedChatRef.current = chat.id;
-        queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
+      const chatIdToUse = await ensureActiveChatId();
+      if (!chatIdToUse) {
+        setIsThinking(false);
+        return;
       }
 
       sendMessage({
@@ -546,13 +607,56 @@ function AgentSidebar({
           editorContent,
           editorMarkdown,
           editorHeading,
-          chatId: chatIdToUse || undefined,
+          chatId: chatIdToUse,
         },
       });
     } catch (error) {
       console.error("Error sending message:", error);
+      setIsThinking(false);
     }
   };
+
+  useEffect(() => {
+    const handleSummaryEvent = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const selection = (detail?.text ?? "").trim();
+      if (!selection) {
+        toast.error("Select some text before requesting a summary.");
+        return;
+      }
+
+      void (async () => {
+        setIsThinking(true);
+        const chatIdToUse = await ensureActiveChatId();
+        if (!chatIdToUse) {
+          setIsThinking(false);
+          return;
+        }
+
+        sendMessage({
+          text: buildSummaryPrompt(selection),
+          metadata: {
+            userMessage: selection,
+            editorContent,
+            editorMarkdown,
+            editorHeading,
+            chatId: chatIdToUse,
+          },
+        });
+      })();
+    };
+
+    window.addEventListener(SUMMARY_EVENT_NAME, handleSummaryEvent);
+    return () => {
+      window.removeEventListener(SUMMARY_EVENT_NAME, handleSummaryEvent);
+    };
+  }, [
+    ensureActiveChatId,
+    editorContent,
+    editorHeading,
+    editorMarkdown,
+    sendMessage,
+  ]);
 
   useEffect(() => {
     if (isThinking) {

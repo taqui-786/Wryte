@@ -51,6 +51,14 @@ const getSelectedText = (view: EditorView) => {
   return view.state.doc.textBetween(from, to, "\n\n").trim();
 };
 
+const truncateText = (text: string, limit: number) =>
+  text.length > limit ? text.slice(0, limit) : text;
+
+export const SUMMARY_EVENT_NAME = "wryte:selection-summarize";
+export const SUMMARY_TEXT_LIMIT = 4000;
+export const readSelectionText = (view: EditorView) =>
+  truncateText(getSelectedText(view), SUMMARY_TEXT_LIMIT);
+
 const applyTransformedText = (
   view: EditorView,
   fallbackRange: { from: number; to: number },

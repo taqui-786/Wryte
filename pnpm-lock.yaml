@@ -227,6 +227,9 @@ importers:
       react-resizable-panels:
         specifier: ^4.0.15
         version: 4.0.15(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      rehype-raw:
+        specifier: ^7.0.0
+        version: 7.0.0
       remark-breaks:
         specifier: ^4.0.0
         version: 4.0.0
