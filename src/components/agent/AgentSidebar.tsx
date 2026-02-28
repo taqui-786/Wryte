@@ -260,31 +260,26 @@ function MessageBubble({
       return false;
     });
   }, [parts]);
-function parseUserMessage(text: string) {
-  if (!/^<Summarize\b/.test(text)) {
-    return text;
+  function parseUserMessage(text: string) {
+    if (!/^<Summarize\b/.test(text)) {
+      return text;
+    }
+
+    const userMsg = text.match(/<userMsg>([\s\S]*?)<\/userMsg>/)?.[1] ?? "";
+
+    const content =
+      text.match(/<content><!\[CDATA\[([\s\S]*?)\]\]><\/content>/)?.[1] ?? "";
+
+    return (
+      <>
+        <div className=" text-base mb-2">{userMsg}</div>
+
+        <div className="p-2 bg-muted border rounded ">
+          <div className=" text-sm text-black  line-clamp-4 ">{content}</div>
+        </div>
+      </>
+    );
   }
-
-  const userMsg =
-    text.match(/<userMsg>(.*?)<\/userMsg>/s)?.[1] ?? "";
-
-  const content =
-    text.match(/<content><!\[CDATA\[(.*?)\]\]><\/content>/s)?.[1] ?? "";
-
-  return (
-    <>
-      <div className=" text-base mb-2">
-        {userMsg}
-      </div>
-
-      <div className="p-2 bg-muted border rounded ">
-        <div className=" text-sm text-black  line-clamp-4 ">
-        {content}
-      </div>
-      </div>
-    </>
-  );
-}
   return (
     <div
       className={`mb-4 group  flex ${isUser ? "justify-end" : "justify-start"}`}
@@ -317,13 +312,13 @@ function parseUserMessage(text: string) {
           if (cardProps) {
             return <ToolStatusCard key={i} index={i} props={cardProps} />;
           }
-if(part.type === "text" && isUser){
-  return (
-    <div className="flex flex-col" key={i}>
-    {parseUserMessage(part.text)}
-    </div>
-  );
-}
+          if (part.type === "text" && isUser) {
+            return (
+              <div className="flex flex-col" key={i}>
+                {parseUserMessage(part.text)}
+              </div>
+            );
+          }
           // Final text response
           if (part.type === "text") {
             return (
