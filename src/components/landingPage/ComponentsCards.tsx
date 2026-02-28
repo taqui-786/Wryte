@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React from "react";
 import { motion } from "framer-motion";
 import { Button } from "../ui/button";
@@ -22,231 +22,272 @@ import { Textarea } from "../ui/textarea";
 import { ChevronDown, Zap } from "lucide-react";
 
 export function ScoreCard() {
-   return (
-     <motion.div
-       className="flex flex-col w-fit items-center justify-center gap-2 p-2 bg-card rounded-lg border absolute -top-8 left-0 -rotate-12 z-10"
-       initial={{ opacity: 0, x: -50 }}
-       animate={{ opacity: 1, x: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut" }}
-     >
-       <h2 className="font-medium text-muted-foreground text-base ">
-         OVERALL SCORE
-       </h2>
-       <span className="font-semibold text-xl">32%</span>
-       <Warning size="75" />
-       <h2 className="font-semibold text-xl text-black/80 ">CAREFULL</h2>
-     </motion.div>
-   );
- }
+  return (
+    <motion.div
+      className="flex flex-col w-fit items-center justify-center gap-2 p-2 bg-card rounded-lg border absolute -top-8 left-0 -rotate-12 z-10 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, x: -50 }}
+      animate={{ opacity: 1, x: 0, y: [0, -10, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        y: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <h2 className="font-medium text-muted-foreground text-base ">
+        OVERALL SCORE
+      </h2>
+      <span className="font-semibold text-xl">32%</span>
+      <Warning size="75" />
+      <h2 className="font-semibold text-xl text-black/80 ">CAREFULL</h2>
+    </motion.div>
+  );
+}
 export function TickCard() {
-   return (
-     <motion.div
-       className="flex flex-col w-fit items-center justify-center gap-2 p-2 bg-card rounded-lg border absolute -top-12 right-0 rotate-12 z-40"
-       initial={{ opacity: 0, x: 50 }}
-       animate={{ opacity: 1, x: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-     >
-       <h2 className="font-medium text-muted-foreground text-base ">
-         OVERALL SCORE
-       </h2>
-       <span className="font-semibold text-xl">92%</span>
-       <CheckBadge size="75" />
-       <h2 className="font-semibold text-xl text-black/80 ">Amazing</h2>
-     </motion.div>
-   );
- }
+  return (
+    <motion.div
+      className="flex flex-col w-fit items-center justify-center gap-2 p-2 bg-card rounded-lg border absolute -top-12 right-0 rotate-12 z-40 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, x: 50 }}
+      animate={{ opacity: 1, x: 0, y: [0, -12, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 0.2,
+        y: { duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <h2 className="font-medium text-muted-foreground text-base ">
+        OVERALL SCORE
+      </h2>
+      <span className="font-semibold text-xl">92%</span>
+      <CheckBadge size="75" />
+      <h2 className="font-semibold text-xl text-black/80 ">Amazing</h2>
+    </motion.div>
+  );
+}
 
 export function SummarizeCard() {
-   return (
-     <motion.div
-       className="space-y-2 p-2 bg-card rounded-lg border w-1/6 absolute top-0 left-40  rotate-12 h-fit z-20"
-       initial={{ opacity: 0, y: -50 }}
-       animate={{ opacity: 1, y: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
-     >
-       <Button className="w-full justify-start" variant={"outline"}>
-         <BulletListSolid size="16" />
-         Shorten
-       </Button>
-       <Button className="w-full justify-start" variant={"outline"}>
-         <ExpandIcon size="16" />
-         Expand
-       </Button>
-       <Button className="w-full justify-start" variant={"outline"}>
-         <AiContentGeneratorIcon size="16" />
-         Summarize
-       </Button>
-     </motion.div>
-   );
- }
+  return (
+    <motion.div
+      className="space-y-2 p-2 bg-card rounded-lg border w-1/6 absolute top-0 left-40  rotate-12 h-fit z-20 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1, y: [0, -8, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 0.4,
+        y: { duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <Button className="w-full justify-start" variant={"outline"}>
+        <BulletListSolid size="16" />
+        Shorten
+      </Button>
+      <Button className="w-full justify-start" variant={"outline"}>
+        <ExpandIcon size="16" />
+        Expand
+      </Button>
+      <Button className="w-full justify-start" variant={"outline"}>
+        <AiContentGeneratorIcon size="16" />
+        Summarize
+      </Button>
+    </motion.div>
+  );
+}
 
 export function PromptGenerateCard() {
-   return (
-     <motion.div
-       className=" p-2 bg-card rounded-lg border w-1/5 absolute top-0 left-[324px]  -rotate-12 h-fit z-30"
-       initial={{ opacity: 0, y: 50 }}
-       animate={{ opacity: 1, y: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 0.6 }}
-     >
-       <h2 className="font-medium text-muted-foreground text-sm text-start ">
-         YOUR PROMPT HERE
-       </h2>
+  return (
+    <motion.div
+      className=" p-2 bg-card rounded-lg border w-1/5 absolute top-0 left-[324px]  -rotate-12 h-fit z-30 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1, y: [0, -15, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 0.6,
+        y: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <h2 className="font-medium text-muted-foreground text-sm text-start ">
+        YOUR PROMPT HERE
+      </h2>
 
-       <Textarea
-         className="w-full resize-none bg-muted border mt-2 min-h-24 "
-         placeholder="Please re-write this part..."
-       />
-       <Button
-         size={"icon-sm"}
-         variant="outline"
-         className="absolute bottom-4 right-4"
-       >
-         <AiBeautifyIcon size="18" />
-       </Button>
-     </motion.div>
-   );
- }
+      <Textarea
+        className="w-full resize-none bg-muted border mt-2 min-h-24 "
+        placeholder="Please re-write this part..."
+      />
+      <Button
+        size={"icon-sm"}
+        variant="outline"
+        className="absolute bottom-4 right-4"
+      >
+        <AiBeautifyIcon size="18" />
+      </Button>
+    </motion.div>
+  );
+}
 export function ToolsCard() {
-   return (
-     <motion.div
-       className="p-2 bg-card rounded-lg border w-fit  flex flex-wrap gap-2 absolute mx-auto top-[135px] left-48 right-0  rotate-6 h-fit z-10"
-       initial={{ opacity: 0, scale: 0.8 }}
-       animate={{ opacity: 1, scale: 1 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 1.2 }}
-     >
-       <div className="flex gap-1 border-r border-x-primary px-2">
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-strong"}
-           title="Bold (Ctrl+B)"
-         >
-           <BoldSolid size="18" />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-em"}
-           title="Italic (Ctrl+I)"
-         >
-           <ItalicsSolid size={"18"} />
-         </Button>
+  return (
+    <motion.div
+      className="p-2 bg-card rounded-lg border w-fit  flex flex-wrap gap-2 absolute mx-auto top-[135px] left-48 right-0  rotate-6 h-fit z-10 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 1.2,
+        y: { duration: 4.2, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <div className="flex gap-1 border-r border-x-primary px-2">
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-strong"}
+          title="Bold (Ctrl+B)"
+        >
+          <BoldSolid size="18" />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-em"}
+          title="Italic (Ctrl+I)"
+        >
+          <ItalicsSolid size={"18"} />
+        </Button>
 
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-underline"}
-           title="underline (Ctrl+`)"
-         >
-           <UnderlineSolid size={"18"} />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-strike"}
-           title="strike (Ctrl+`)"
-         >
-           <StrikeThroughSolid size={"18"} />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-strike"}
-           title="strike (Ctrl+`)"
-         >
-           <LinkSolid size={"18"} />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-code"}
-           title="Inline Code (Ctrl+`)"
-         >
-           <CodeSolid size={"18"} />
-         </Button>
-       </div>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-underline"}
+          title="underline (Ctrl+`)"
+        >
+          <UnderlineSolid size={"18"} />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-strike"}
+          title="strike (Ctrl+`)"
+        >
+          <StrikeThroughSolid size={"18"} />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-strike"}
+          title="strike (Ctrl+`)"
+        >
+          <LinkSolid size={"18"} />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-code"}
+          title="Inline Code (Ctrl+`)"
+        >
+          <CodeSolid size={"18"} />
+        </Button>
+      </div>
 
-       <div className="flex gap-1  pr-2">
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-heading1"}
-           title="Heading 1"
-         >
-           <Heading1Solid size={"18"} />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-heading2"}
-           title="Heading 2"
-         >
-           <Heading2Solid size={"18"} />
-         </Button>
-         <Button
-           size={"icon-sm"}
-           variant={"ghost"}
-           type="button"
-           className={"tool-heading3"}
-           title="Heading 2"
-         >
-           <Heading3Solid size={"18"} />
-         </Button>
-       </div>
-     </motion.div>
-   );
- }
+      <div className="flex gap-1  pr-2">
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-heading1"}
+          title="Heading 1"
+        >
+          <Heading1Solid size={"18"} />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-heading2"}
+          title="Heading 2"
+        >
+          <Heading2Solid size={"18"} />
+        </Button>
+        <Button
+          size={"icon-sm"}
+          variant={"ghost"}
+          type="button"
+          className={"tool-heading3"}
+          title="Heading 2"
+        >
+          <Heading3Solid size={"18"} />
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
 export function UseAiCard() {
-   return (
-     <motion.div
-       className="space-y-2 p-2 bg-card rounded-lg border w-1/5 absolute  top-[45px]  right-[115px] -rotate-12 h-fit z-20"
-       initial={{ opacity: 0, x: 50 }}
-       animate={{ opacity: 1, x: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 1.0 }}
-     >
-       <Button className="w-full justify-start" variant={"outline"}>
-         <Zap />
-         Use Ai
-         <ChevronDown className="ml-2" />
-       </Button>
-     </motion.div>
-   );
- }
+  return (
+    <motion.div
+      className="space-y-2 p-2 bg-card rounded-lg border w-1/5 absolute  top-[45px]  right-[115px] -rotate-12 h-fit z-20 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, x: 50 }}
+      animate={{ opacity: 1, x: 0, y: [0, -9, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 1.0,
+        y: { duration: 4.8, repeat: Infinity, ease: "easeInOut", delay: 1.0 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <Button className="w-full justify-start" variant={"outline"}>
+        <Zap />
+        Use Ai
+        <ChevronDown className="ml-2" />
+      </Button>
+    </motion.div>
+  );
+}
 export function FixGrammerCard() {
-   return (
-     <motion.div
-       className="space-y-2 p-2 bg-card rounded-lg border w-1/5 absolute top-0  right-[282px]   rotate-12 h-fit z-20"
-       initial={{ opacity: 0, y: -50 }}
-       animate={{ opacity: 1, y: 0 }}
-       transition={{ duration: 0.6, ease: "easeOut", delay: 0.8 }}
-     >
-       <div className="p-2 bg-muted rounded-lg">
-         <h2 className="font-medium text-muted-foreground text-sm text-start ">
-           CORRECT YOUR GRAMMER
-         </h2>
-         <h2 className="font-semibold mt-1 text-black/80 text-sm text-start ">
-           Comprehend
-         </h2>
-       </div>
-       <div className="w-full flex items-center justify-between mt-4">
-         <Button size={"icon-sm"} variant={"ghost"}>
-           <DeleteIcon size="18" />
-         </Button>
-         <Button size="sm" variant={"outline"}>
-           Fix
-         </Button>
-       </div>
-     </motion.div>
-   );
- }
+  return (
+    <motion.div
+      className="space-y-2 p-2 bg-card rounded-lg border w-1/5 absolute top-0  right-[282px]   rotate-12 h-fit z-20 cursor-pointer transition-colors hover:border-primary/50"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1, y: [0, -12, 0] }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: 0.8,
+        y: { duration: 3.7, repeat: Infinity, ease: "easeInOut", delay: 0.8 },
+      }}
+      whileHover={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+    >
+      <div className="p-2 bg-muted rounded-lg">
+        <h2 className="font-medium text-muted-foreground text-sm text-start ">
+          CORRECT YOUR GRAMMER
+        </h2>
+        <h2 className="font-semibold mt-1 text-black/80 text-sm text-start ">
+          Comprehend
+        </h2>
+      </div>
+      <div className="w-full flex items-center justify-between mt-4">
+        <Button size={"icon-sm"} variant={"ghost"}>
+          <DeleteIcon size="18" />
+        </Button>
+        <Button size="sm" variant={"outline"}>
+          Fix
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
 type CheckBadgeProps = {
   size: string;
 };
