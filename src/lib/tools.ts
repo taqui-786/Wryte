@@ -51,7 +51,7 @@ export const weatherTool = ({ writer }: { writer: UIMessageStreamWriter }) => {
 
       // Step 4: Stream the response
       const result = streamText({
-        model: groq("openai/gpt-oss-20b"),
+        model: groq("openai/gpt-oss-120b"),
         prompt: `
 You are a weather assistant.
 
@@ -196,7 +196,7 @@ export const editorWriteTool = ({
       }
 
       const result = streamText({
-        model: groq("openai/gpt-oss-20b"),
+        model: groq("openai/gpt-oss-120b"),
         output: Output.array({
           element: z.object({
             line: z.number(),
@@ -312,7 +312,7 @@ export const editorTitleTool = ({
       }
 
       const result = streamText({
-        model: groq("openai/gpt-oss-20b"),
+        model: groq("openai/gpt-oss-120b"),
         system: `
 You are an expert editor.
 Create a single, concise title for the document.

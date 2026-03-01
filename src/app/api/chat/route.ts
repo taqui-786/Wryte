@@ -1,5 +1,6 @@
 import { groq } from "@ai-sdk/groq";
 import {
+  InferUIMessageChunk,
   UIMessage,
   convertToModelMessages,
   createIdGenerator,
@@ -143,7 +144,7 @@ export async function POST(req: Request) {
         sharedState,
       });
       const result = streamText({
-        model: groq("openai/gpt-oss-20b"),
+        model: groq("openai/gpt-oss-120b"),
 
         system: assistentPrompt({
           editorContent,
@@ -159,7 +160,7 @@ export async function POST(req: Request) {
           write_title_tool,
         },
 
-        stopWhen: stepCountIs(10),
+        stopWhen: stepCountIs(5),
         experimental_transform: smoothStream({
           delayInMs: 15,
           chunking: /[^-]*---/,

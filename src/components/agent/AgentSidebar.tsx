@@ -6,6 +6,7 @@ import {
   Menu01Icon,
   SentIcon,
   ToolsIcon,
+  X,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -196,9 +197,25 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
 
+  const reasoningParts = useMemo(
+    () => parts.filter((part) => part.type === "reasoning"),
+    [parts],
+  );
+  const hasReasoning = reasoningParts.length > 0;
+  const reasoningText = useMemo(
+    () =>
+      reasoningParts
+        .map((part) => part.text ?? "")
+        .filter(Boolean)
+        .join("\n\n"),
+    [reasoningParts],
+  );
+  const isReasoningStreaming = reasoningParts.some(
+    (part) => part?.state !== "done",
+  );
+
   // Filter parts to only show relevant current state
   const filteredParts = useMemo(() => {
-    const hasReasoning = parts.some((p) => p.type === "reasoning");
     // Dynamic: match any tool-* invocation part
     const hasToolCall = parts.some((p) => p.type.startsWith("tool-"));
     const hasDataToolReasoning = parts.some(
@@ -231,9 +248,6 @@ function MessageBubble({
       // Hide step-start once we have any real content
       if (part.type === "step-start") return !hasAnyActivity;
 
-      // Always show model reasoning (it collapses itself)
-      if (part.type === "reasoning") return true;
-
       // Hide tool-invocation parts once we have data parts
       if (part.type.startsWith("tool-")) {
         return !hasDataToolReasoning && !hasDataToolOutput;
@@ -259,7 +273,7 @@ function MessageBubble({
 
       return false;
     });
-  }, [parts]);
+  }, [parts, hasReasoning]);
   function parseUserMessage(text: string) {
     if (!/^<Summarize\b/.test(text)) {
       return text;
@@ -292,21 +306,18 @@ function MessageBubble({
             : "bg-background text-foreground"
         }`}
       >
-        {filteredParts.map((part, i) => {
-          // Model reasoning (collapsible)
-          if (part.type === "reasoning") {
-            return (
-              <Reasoning
-                key={i}
-                className="w-full"
-                isStreaming={part?.state !== "done"}
-              >
-                <ReasoningTrigger />
-                <ReasoningContent>{part?.text}</ReasoningContent>
-              </Reasoning>
-            );
-          }
+        {hasReasoning && (
+          <Reasoning
+            key="reasoning-block"
+            className="w-full"
+            isStreaming={isReasoningStreaming}
+          >
+            <ReasoningTrigger />
+            <ReasoningContent>{reasoningText}</ReasoningContent>
+          </Reasoning>
+        )}
 
+        {filteredParts.map((part, i) => {
           // data-title-update, data-tool-reasoning, data-tool-output
           const cardProps = getToolCardProps(part);
           if (cardProps) {
@@ -371,7 +382,22 @@ function AgentSidebar({
   const queryClient = useQueryClient();
   const ensureActiveChatId = useCallback(async () => {
     if (!docId) {
-      toast.error("Open a document before using the agent.");
+      toast.custom((t) => (
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900">Save your document</p>
+            <p className="text-xs text-gray-500">
+            If the document is not saved, the agent conversation will be lost.
+            </p>
+          </div>
+          <button
+            onClick={() => toast.dismiss(t)}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <HugeiconsIcon icon={X} className="h-4 w-4" />
+          </button>
+        </div>
+      ));
       return null;
     }
 
@@ -552,12 +578,12 @@ function AgentSidebar({
   const handleNewChat = useCallback(async () => {
     if (!docId) return;
     try {
-      const chat = await createAgentChat(docId);
-      setActiveChatId(chat.id);
-      hasLoadedChatRef.current = chat.id;
+      // const chat = await createAgentChat(docId);
+      setActiveChatId(null);
+      hasLoadedChatRef.current = null;
       setMessages([]);
       setViewHistory(false);
-      queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
+      // queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
     } catch (error) {
       console.error("Failed to create new chat:", error);
     }
@@ -590,10 +616,10 @@ function AgentSidebar({
 
       setIsThinking(true);
       const chatIdToUse = await ensureActiveChatId();
-      if (!chatIdToUse) {
-        setIsThinking(false);
-        return;
-      }
+      // if (!chatIdToUse) {
+      //   setIsThinking(false);
+      //   return;
+      // }
 
       sendMessage({
         text,
@@ -602,7 +628,7 @@ function AgentSidebar({
           editorContent,
           editorMarkdown,
           editorHeading,
-          chatId: chatIdToUse,
+          chatId: chatIdToUse || undefined,
         },
       });
     } catch (error) {
@@ -701,6 +727,7 @@ function AgentSidebar({
         })),
     });
   }, [activeChatId, messages, onPersistableChatChange]);
+// console.log({messages});
 
   return (
     <div className="h-full flex flex-col gap-4">
