@@ -34,6 +34,32 @@ class SelectionSizeTooltip {
   tooltip: HTMLDivElement;
   root: Root;
   view: EditorView;
+  private readonly interactiveMenuSelector =
+    "[data-slot='dropdown-menu-content'], [data-slot='popover-content']";
+  private readonly handleDocumentMouseDown = (event: MouseEvent) => {
+    if (this.view.state.selection.empty) return;
+
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+
+    // Let ProseMirror handle in-editor clicks.
+    if (this.view.dom.contains(target)) return;
+
+    // Keep selection while interacting with the floating selection menu.
+    if (this.tooltip.contains(target)) return;
+    if (
+      target instanceof Element &&
+      target.closest(this.interactiveMenuSelector)
+    ) {
+      return;
+    }
+
+    const { to } = this.view.state.selection;
+    const tr = this.view.state.tr.setSelection(
+      TextSelection.create(this.view.state.doc, to),
+    );
+    this.view.dispatch(tr);
+  };
 
   constructor(view: EditorView) {
     this.view = view;
@@ -61,6 +87,7 @@ class SelectionSizeTooltip {
     );
 
     this.update(view, null);
+    document.addEventListener("mousedown", this.handleDocumentMouseDown, true);
   }
 
   update(view: EditorView, lastState: any) {
@@ -338,6 +365,11 @@ class SelectionSizeTooltip {
   destroy() {
     // Defer unmount to avoid race condition with React rendering
     setTimeout(() => {
+      document.removeEventListener(
+        "mousedown",
+        this.handleDocumentMouseDown,
+        true,
+      );
       this.root.unmount();
       this.tooltip.remove();
     }, 0);

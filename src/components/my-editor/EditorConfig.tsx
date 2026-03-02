@@ -1,4 +1,4 @@
-import { EditorState, Plugin } from "prosemirror-state";
+import { EditorState, Plugin, type Command } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { keymap } from "prosemirror-keymap";
 import {
@@ -60,6 +60,36 @@ export function createEditorState(
   requestAutocomplete?: AutocompleteRequest,
   onChange?: (json: any) => void,
 ) {
+  const insertHardBreaks = (count: number): Command => (state, dispatch) => {
+    const hardBreak = mySchema.nodes.hard_break;
+    if (!hardBreak) return false;
+
+    // Keep default Enter behavior inside code blocks.
+    if (state.selection.$from.parent.type === mySchema.nodes.code_block) {
+      return false;
+    }
+
+    if (dispatch) {
+      let tr = state.tr;
+
+      if (!state.selection.empty) {
+        tr = tr.deleteSelection();
+      }
+
+      for (let i = 0; i < count; i++) {
+        tr = tr.replaceSelectionWith(hardBreak.create());
+      }
+
+      dispatch(tr.scrollIntoView());
+    }
+
+    if (viewRef.current) {
+      viewRef.current.focus();
+    }
+
+    return true;
+  };
+
   let startDoc: any;
 
   if (defaultContent) {
@@ -301,6 +331,11 @@ export function createEditorState(
       }
       return false;
     },
+    // Line spacing controls
+    // Shift+Enter: tight line break
+    "Shift-Enter": insertHardBreaks(1),
+    // Ctrl/Cmd+Shift+Enter: larger in-paragraph gap
+    "Mod-Shift-Enter": insertHardBreaks(2),
   });
 
   // Plugin that adds data-line="N" attributes to every top-level block node
