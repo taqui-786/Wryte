@@ -1,7 +1,5 @@
 import { groq } from "@ai-sdk/groq";
 import {
-  InferUIMessageChunk,
-  UIMessage,
   convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
@@ -10,6 +8,7 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
+import type { UIMessage } from "ai";
 import {
   editorTitleTool,
   editorWriteTool,
@@ -18,12 +17,19 @@ import {
 } from "@/lib/tools";
 import { saveAgentMessages } from "@/lib/serverAction";
 import { assistentPrompt } from "@/lib/prompt-utils";
+import { auth } from "@/lib/auth";
+import {
+  buildRateLimitExceededPayload,
+  checkAiRateLimit,
+  recordAiUsage,
+} from "@/lib/ai-rate-limiter";
 export type Metadata = {
   userMessage: string;
   editorContent?: string;
   editorMarkdown?: string;
   editorHeading?: string;
   chatId?: string;
+  docId?: string;
 };
 export type MyUIMessage = UIMessage<
   Metadata, // so this is extra information
@@ -98,12 +104,32 @@ export type MyUIMessage = UIMessage<
 >;
 
 export async function POST(req: Request) {
+  const session = await auth.api.getSession({
+    headers: req.headers,
+  });
+
+  if (!session) {
+    return Response.json(
+      { error: "UNAUTHORIZED", message: "Unauthorized" },
+      { status: 401 },
+    );
+  }
+
+  const limit = await checkAiRateLimit(session.user.id, "agent_chat");
+  if (!limit.allowed) {
+    return Response.json(buildRateLimitExceededPayload("agent_chat", limit), {
+      status: 429,
+    });
+  }
+
   const { messages }: { messages: MyUIMessage[] } = await req.json();
   const latestMetadata = messages[messages.length - 1]?.metadata;
   const editorContent = latestMetadata?.editorContent;
   const editorMarkdown = latestMetadata?.editorMarkdown;
   const editorHeading = latestMetadata?.editorHeading;
   const chatId = latestMetadata?.chatId;
+  const docId = latestMetadata?.docId;
+
   const stream = createUIMessageStream<MyUIMessage>({
     generateId: createIdGenerator({
       prefix: "msg",
@@ -127,7 +153,15 @@ export async function POST(req: Request) {
       }
     },
     execute: async ({ writer }) => {
-      const get_weather_tool = weatherTool({ writer });
+      const usageTracking = {
+        userId: session.user.id,
+        feature: "agent_chat" as const,
+        model: "openai/gpt-oss-120b" as const,
+        agentChatId: chatId,
+        docId,
+      };
+
+      const get_weather_tool = weatherTool({ writer, usageTracking });
 
       const sharedState = createSharedEditorState();
 
@@ -136,12 +170,14 @@ export async function POST(req: Request) {
         editorContent,
         editorMarkdown,
         sharedState,
+        usageTracking,
       });
       const write_title_tool = editorTitleTool({
         writer,
         editorContent,
         editorMarkdown,
         sharedState,
+        usageTracking,
       });
       const result = streamText({
         model: groq("openai/gpt-oss-120b"),
@@ -165,6 +201,20 @@ export async function POST(req: Request) {
           delayInMs: 15,
           chunking: /[^-]*---/,
         }),
+        onFinish: async ({ totalUsage }) => {
+          try {
+            await recordAiUsage({
+              userId: session.user.id,
+              feature: "agent_chat",
+              model: "openai/gpt-oss-120b",
+              agentChatId: chatId,
+              docId,
+              usage: totalUsage,
+            });
+          } catch (error) {
+            console.error("Failed to record chat usage:", error);
+          }
+        },
       });
       writer.merge(result.toUIMessageStream());
     },

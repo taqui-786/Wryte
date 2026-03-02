@@ -1,5 +1,11 @@
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
+import { auth } from "@/lib/auth";
+import {
+  buildRateLimitExceededPayload,
+  checkAiRateLimit,
+  recordAiUsage,
+} from "@/lib/ai-rate-limiter";
 
 type CompletionRequestBody = {
   prompt?: string;
@@ -39,6 +45,25 @@ const sanitizeCompletion = (text: string) => {
 
 export async function POST(req: Request) {
   try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session) {
+      return Response.json(
+        { error: "UNAUTHORIZED", message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const limit = await checkAiRateLimit(session.user.id, "autocomplete");
+    if (!limit.allowed) {
+      return Response.json(
+        buildRateLimitExceededPayload("autocomplete", limit),
+        { status: 429 },
+      );
+    }
+
     const {
       prompt = "",
       node = "paragraph",
@@ -105,13 +130,24 @@ Generate completion:`;
         : basePrompt;
 
       const result = await generateText({
-        model: groq("moonshotai/kimi-k2-instruct-0905"),
+        model: groq("openai/gpt-oss-20b"),
 
         system,
         prompt: composedPrompt,
         temperature: 0.4,
         maxOutputTokens: 64,
       });
+
+      try {
+        await recordAiUsage({
+          userId: session.user.id,
+          feature: "autocomplete",
+          model: "openai/gpt-oss-20b",
+          usage: result.usage,
+        });
+      } catch (error) {
+        console.error("Failed to record completion usage:", error);
+      }
 
       return sanitizeCompletion(result.text ?? "");
     };

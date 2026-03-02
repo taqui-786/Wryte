@@ -1,5 +1,11 @@
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
+import { auth } from "@/lib/auth";
+import {
+  buildRateLimitExceededPayload,
+  checkAiRateLimit,
+  recordAiUsage,
+} from "@/lib/ai-rate-limiter";
 
 type TransformAction = "shorten" | "expand";
 
@@ -34,6 +40,25 @@ Always return only the rewritten text, no explanation or metadata.
 
 export async function POST(req: Request) {
   try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session) {
+      return Response.json(
+        { error: "UNAUTHORIZED", message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const limit = await checkAiRateLimit(session.user.id, "editor_transform");
+    if (!limit.allowed) {
+      return Response.json(
+        buildRateLimitExceededPayload("editor_transform", limit),
+        { status: 429 },
+      );
+    }
+
     const { action, text }: EditorSelectionTransformBody = await req.json();
 
     if (!action || (action !== "shorten" && action !== "expand")) {
@@ -45,13 +70,24 @@ export async function POST(req: Request) {
     }
 
     const result = await generateText({
-      model: groq("moonshotai/kimi-k2-instruct-0905"),
+      model: groq("openai/gpt-oss-20b"),
       system:
         "You are a precise writing editor for markdown documents. Return only transformed text without commentary.",
       prompt: `${actionInstruction(action)}\n\n${toneGuidelines}\n\nInput:\n${text}`,
       temperature: 0.4,
       maxOutputTokens: 800,
     });
+
+    try {
+      await recordAiUsage({
+        userId: session.user.id,
+        feature: "editor_transform",
+        model: "openai/gpt-oss-20b",
+        usage: result.usage,
+      });
+    } catch (error) {
+      console.error("Failed to record selection transform usage:", error);
+    }
 
     const transformed = sanitizeOutput(result.text ?? "");
 

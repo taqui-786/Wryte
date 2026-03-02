@@ -19,6 +19,7 @@ import {
   useGetAgentChatMessages,
   useGetAllAgentChats,
 } from "@/lib/queries/getAgentChatQuery";
+import { parseAiApiError } from "@/lib/ai-api-error";
 import { SUMMARY_EVENT_NAME } from "@/components/my-editor/editorAiSelectionTools";
 import { createAgentChat } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
@@ -352,6 +353,13 @@ function MessageBubble({
 
 type AIStreamStatus = "processing" | "streaming" | "complete";
 
+const formatResetTime = (resetAt?: string) => {
+  if (!resetAt) return "midnight UTC";
+  const parsed = new Date(resetAt);
+  if (Number.isNaN(parsed.getTime())) return "midnight UTC";
+  return `${parsed.toLocaleTimeString()} (${parsed.toLocaleDateString()})`;
+};
+
 function AgentSidebar({
   editorMarkdown,
   onEditorUpdate,
@@ -377,6 +385,9 @@ function AgentSidebar({
   const [viewHistory, setViewHistory] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [showThinking, setShowThinking] = useState(false);
+  const [chatRateLimitNotice, setChatRateLimitNotice] = useState<string | null>(
+    null,
+  );
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -385,9 +396,11 @@ function AgentSidebar({
       toast.custom((t) => (
         <div className="flex items-center gap-2">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-900">Save your document</p>
+            <p className="text-sm font-medium text-gray-900">
+              Save your document
+            </p>
             <p className="text-xs text-gray-500">
-            If the document is not saved, the agent conversation will be lost.
+              If the document is not saved, the agent conversation will be lost.
             </p>
           </div>
           <button
@@ -423,7 +436,15 @@ function AgentSidebar({
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
     onError: (error) => {
       console.error("Error sending message:", error);
-      toast.error("Something went wrong, please try again");
+      const parsed = parseAiApiError(error);
+      if (parsed?.error === "RATE_LIMIT_EXCEEDED") {
+        const resetText = formatResetTime(parsed.resetAt);
+        setChatRateLimitNotice(
+          `You've used all your daily AI messages. Resets at ${resetText}.`,
+        );
+      } else {
+        toast.error("Something went wrong, please try again");
+      }
       setIsThinking(false);
     },
   });
@@ -615,6 +636,7 @@ function AgentSidebar({
       setInputValue("");
 
       setIsThinking(true);
+      setChatRateLimitNotice(null);
       const chatIdToUse = await ensureActiveChatId();
       // if (!chatIdToUse) {
       //   setIsThinking(false);
@@ -629,6 +651,7 @@ function AgentSidebar({
           editorMarkdown,
           editorHeading,
           chatId: chatIdToUse || undefined,
+          docId,
         },
       });
     } catch (error) {
@@ -648,6 +671,7 @@ function AgentSidebar({
 
       void (async () => {
         setIsThinking(true);
+        setChatRateLimitNotice(null);
         const chatIdToUse = await ensureActiveChatId();
         if (!chatIdToUse) {
           setIsThinking(false);
@@ -662,6 +686,7 @@ function AgentSidebar({
             editorMarkdown,
             editorHeading,
             chatId: chatIdToUse,
+            docId,
           },
         });
       })();
@@ -727,7 +752,7 @@ function AgentSidebar({
         })),
     });
   }, [activeChatId, messages, onPersistableChatChange]);
-// console.log({messages});
+  // console.log({messages});
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -775,6 +800,11 @@ function AgentSidebar({
             ref={scrollRef}
             className="flex-1  min-h-0 overflow-y-auto 2xl:p-4 p-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent"
           >
+            {chatRateLimitNotice ? (
+              <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-sm text-amber-900">
+                {chatRateLimitNotice}
+              </div>
+            ) : null}
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
                 {isLoadingAllChats ? (
@@ -852,7 +882,7 @@ function AgentSidebar({
                       handleSend();
                     }
                   }}
-                  disabled={isThinking}
+                  disabled={isThinking || Boolean(chatRateLimitNotice)}
                   placeholder="Tell me what you want to write..."
                   className="flex-1 h-24 resize-none  bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
                 />
@@ -860,7 +890,11 @@ function AgentSidebar({
                   size="icon-lg"
                   className="self-end"
                   type="submit"
-                  disabled={isThinking || !inputValue.trim()}
+                  disabled={
+                    isThinking ||
+                    Boolean(chatRateLimitNotice) ||
+                    !inputValue.trim()
+                  }
                 >
                   <HugeiconsIcon icon={SentIcon} />
                 </Button>

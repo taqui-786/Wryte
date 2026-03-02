@@ -1,18 +1,21 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import type { EditorView } from "prosemirror-view";
+import { toast } from "sonner";
+import { parseAiApiError } from "@/lib/ai-api-error";
 
 export type SelectionTransformAction = "shorten" | "expand";
 
 type ProcessingMeta = { from: number; to: number } | null;
 
-export const selectionAiProcessingPluginKey =
-  new PluginKey<DecorationSet>("selectionAiProcessingPlugin");
+export const selectionAiProcessingPluginKey = new PluginKey<DecorationSet>(
+  "selectionAiProcessingPlugin",
+);
 
 export const selectionAiProcessingPlugin = new Plugin<DecorationSet>({
   key: selectionAiProcessingPluginKey,
   state: {
-    init: (_, state) => DecorationSet.empty,
+    init: (_, _state) => DecorationSet.empty,
     apply(tr, old) {
       const mapped = old.map(tr.mapping, tr.doc);
       const meta = tr.getMeta(selectionAiProcessingPluginKey) as
@@ -101,6 +104,21 @@ export const runSelectionTransform = async (
         text: selectedText,
       }),
     });
+
+    if (response.status === 429) {
+      const raw = await response.text();
+      const parsed = parseAiApiError(raw);
+      const resetAt = parsed?.resetAt ? new Date(parsed.resetAt) : null;
+      const resetText =
+        resetAt && !Number.isNaN(resetAt.getTime())
+          ? resetAt.toUTCString()
+          : "midnight UTC";
+
+      toast.error(
+        `Text transform limit reached for today. Resets at ${resetText}.`,
+      );
+      return false;
+    }
 
     if (!response.ok) {
       throw new Error(`Failed selection transform: ${response.status}`);

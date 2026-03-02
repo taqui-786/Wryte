@@ -1,8 +1,11 @@
-import { Output, UIMessageStreamWriter, streamText, tool } from "ai";
+import { Output, streamText, tool } from "ai";
+import type { UIMessageStreamWriter } from "ai";
 import { nanoid } from "nanoid";
 import z from "zod";
 import { getCoordinates, getWeather } from "@/lib/serverAction";
 import { groq } from "@ai-sdk/groq";
+import { recordAiUsage } from "@/lib/ai-rate-limiter";
+import type { UsageFeature, UsageModel } from "@/lib/ai-usage-limits";
 
 // Shared mutable state so the title tool can see content written by the editor tool
 export type SharedEditorState = {
@@ -12,7 +15,46 @@ export type SharedEditorState = {
 export function createSharedEditorState(): SharedEditorState {
   return { lastWrittenContent: null };
 }
-export const weatherTool = ({ writer }: { writer: UIMessageStreamWriter }) => {
+
+type UsageTrackingContext = {
+  userId: string;
+  feature: UsageFeature;
+  model: UsageModel;
+  agentChatId?: string;
+  docId?: string;
+};
+
+const recordToolUsage = async (
+  usageTracking: UsageTrackingContext | undefined,
+  usage: unknown,
+) => {
+  if (!usageTracking) return;
+
+  try {
+    await recordAiUsage({
+      userId: usageTracking.userId,
+      feature: usageTracking.feature,
+      model: usageTracking.model,
+      agentChatId: usageTracking.agentChatId,
+      docId: usageTracking.docId,
+      usage: usage as {
+        inputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+      },
+    });
+  } catch (error) {
+    console.error("Failed to record tool usage:", error);
+  }
+};
+
+export const weatherTool = ({
+  writer,
+  usageTracking,
+}: {
+  writer: UIMessageStreamWriter;
+  usageTracking?: UsageTrackingContext;
+}) => {
   return tool({
     description: "Get the real weather for a location",
     inputSchema: z.object({
@@ -101,6 +143,9 @@ Format:
             });
           }
         },
+        onFinish: async ({ totalUsage }) => {
+          await recordToolUsage(usageTracking, totalUsage);
+        },
       });
 
       let fullText = "";
@@ -135,11 +180,13 @@ export const editorWriteTool = ({
   editorContent,
   editorMarkdown,
   sharedState,
+  usageTracking,
 }: {
   writer: UIMessageStreamWriter;
   editorContent?: string;
   editorMarkdown?: string;
   sharedState: SharedEditorState;
+  usageTracking?: UsageTrackingContext;
 }) => {
   return tool({
     description:
@@ -227,6 +274,9 @@ Instructions: ${instructions}
 
 ${contextBlocks.join("\n\n")}
         `.trim(),
+        onFinish: async ({ totalUsage }) => {
+          await recordToolUsage(usageTracking, totalUsage);
+        },
       });
 
       let fullText = "";
@@ -268,11 +318,13 @@ export const editorTitleTool = ({
   editorContent,
   editorMarkdown,
   sharedState,
+  usageTracking,
 }: {
   writer: UIMessageStreamWriter;
   editorContent?: string;
   editorMarkdown?: string;
   sharedState: SharedEditorState;
+  usageTracking?: UsageTrackingContext;
 }) => {
   return tool({
     description: "Generate a concise, relevant title for the current document.",
@@ -324,6 +376,9 @@ Instructions: ${instructions ?? "None"}
 
 ${contextBlocks.join("\n\n")}
         `.trim(),
+        onFinish: async ({ totalUsage }) => {
+          await recordToolUsage(usageTracking, totalUsage);
+        },
       });
 
       let fullText = "";

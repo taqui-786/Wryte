@@ -28,6 +28,8 @@ import type { AutocompleteRequest } from "./MyPlugins";
 import "./myEditorStyle.css";
 import { marked } from "marked";
 import { customMarkdownSerializer } from "./EditorConfig";
+import { toast } from "sonner";
+import { parseAiApiError } from "@/lib/ai-api-error";
 
 /** A single line-level change from the AI */
 export type AIChange = {
@@ -140,9 +142,41 @@ const MyEditor = forwardRef<
   const lastEditorValueRef = useRef<string | null>(null);
   const isApplyingExternalUpdateRef = useRef(false);
   const pendingExternalValueRef = useRef<string | null>(null);
+  const [autocompleteRateLimited, setAutocompleteRateLimited] = useState(false);
+  const rateLimitToastShownRef = useRef(false);
+  const completionErrorPayloadRef = useRef<string | null>(null);
+  const completionFetch = useCallback<typeof fetch>(async (input, init) => {
+    const response = await fetch(input, init);
+    if (response.status === 429) {
+      const payload = await response.text();
+      completionErrorPayloadRef.current = payload;
+      return new Response(payload, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+    completionErrorPayloadRef.current = null;
+    return response;
+  }, []);
+
   const { complete } = useCompletion({
     api: "/api/completion",
     streamProtocol: "text",
+    fetch: completionFetch,
+    onError: (error) => {
+      const parsed = parseAiApiError(
+        completionErrorPayloadRef.current ?? error,
+      );
+
+      if (parsed?.error === "RATE_LIMIT_EXCEEDED") {
+        setAutocompleteRateLimited(true);
+        if (!rateLimitToastShownRef.current) {
+          rateLimitToastShownRef.current = true;
+          toast.error("Autocomplete limit reached for today.");
+        }
+      }
+    },
   });
   const completeRef = useRef(complete);
 
@@ -152,6 +186,8 @@ const MyEditor = forwardRef<
 
   const requestAutocomplete = useCallback<AutocompleteRequest>(
     async ({ context, node, endWithSpace, lastWord, isIncompleteWord }) => {
+      if (autocompleteRateLimited) return "";
+
       const rawCompletion = await completeRef.current(context, {
         body: {
           node,
@@ -175,7 +211,7 @@ const MyEditor = forwardRef<
 
       return completion;
     },
-    [],
+    [autocompleteRateLimited],
   );
 
   const buildAIChangeTransaction = (changes: AIChange[], baseDoc?: PMNode) => {
