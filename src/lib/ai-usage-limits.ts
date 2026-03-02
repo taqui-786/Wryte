@@ -1,18 +1,18 @@
 export const AI_USAGE_LIMITS = {
   AGENT_CHAT: {
     model: "openai/gpt-oss-120b",
-    dailyTokens: 3200,
-    dailyRequests: 16,
+    dailyTokens: 16000,
+    dailyRequests: 80,
   },
   AUTOCOMPLETE: {
     model: "openai/gpt-oss-20b",
-    dailyTokens: 3200,
-    dailyRequests: 16,
+    dailyTokens: 16000,
+    dailyRequests: 80,
   },
   EDITOR_TRANSFORM: {
     model: "openai/gpt-oss-20b",
-    dailyTokens: 3200,
-    dailyRequests: 16,
+    dailyTokens: 16000,
+    dailyRequests: 80,
   },
 } as const;
 

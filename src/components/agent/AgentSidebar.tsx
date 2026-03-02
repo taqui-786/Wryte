@@ -357,7 +357,7 @@ const formatResetTime = (resetAt?: string) => {
   if (!resetAt) return "midnight UTC";
   const parsed = new Date(resetAt);
   if (Number.isNaN(parsed.getTime())) return "midnight UTC";
-  return `${parsed.toLocaleTimeString()} (${parsed.toLocaleDateString()})`;
+  return `midnight UTC (${parsed.toLocaleTimeString()} local)`;
 };
 
 function AgentSidebar({
@@ -882,7 +882,7 @@ function AgentSidebar({
                       handleSend();
                     }
                   }}
-                  disabled={isThinking || Boolean(chatRateLimitNotice)}
+                  disabled={isThinking}
                   placeholder="Tell me what you want to write..."
                   className="flex-1 h-24 resize-none  bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50"
                 />
@@ -890,11 +890,7 @@ function AgentSidebar({
                   size="icon-lg"
                   className="self-end"
                   type="submit"
-                  disabled={
-                    isThinking ||
-                    Boolean(chatRateLimitNotice) ||
-                    !inputValue.trim()
-                  }
+                  disabled={isThinking || !inputValue.trim()}
                 >
                   <HugeiconsIcon icon={SentIcon} />
                 </Button>
