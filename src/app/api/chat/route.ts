@@ -23,6 +23,7 @@ import {
   checkAiRateLimit,
   recordAiUsage,
 } from "@/lib/ai-rate-limiter";
+import { mainModel } from "@/lib/nvidia";
 export type Metadata = {
   userMessage: string;
   editorContent?: string;
@@ -180,7 +181,7 @@ export async function POST(req: Request) {
         usageTracking,
       });
       const result = streamText({
-        model: groq("openai/gpt-oss-120b"),
+        model: mainModel,
 
         system: assistentPrompt({
           editorContent,
