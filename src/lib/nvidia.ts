@@ -10,12 +10,3 @@ export const nim = createOpenAICompatible({
 });
 
 export const mainModel = nim.chatModel("moonshotai/kimi-k2.5"); // working ✅ fast
-const testing = async () =>{
-  const result = await generateText({
-    model:mainModel,
-    prompt:"hello there"
-  })
-  console.log(result.text);
-   
-}
-testing();
