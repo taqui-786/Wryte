@@ -1,17 +1,42 @@
 import { getSessionCookie } from "better-auth/cookies";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+
+const hasAdminRole = (role: string | string[] | null | undefined): boolean => {
+  const normalized = Array.isArray(role) ? role.join(",") : (role ?? "");
+  return normalized.split(",").some((item) => item.trim() === "admin");
+};
 
 export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const pathname = request.nextUrl.pathname;
+  const isPublicRoute = pathname === "/" || pathname === "/signin";
+  const isAdminRoute = pathname.startsWith("/admin");
+
+  if (isAdminRoute) {
+    // Full session validation for admin paths.
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
+
+    if (!session?.user) {
+      return NextResponse.redirect(new URL("/signin", request.url));
+    }
+
+    if (!hasAdminRole(session.user.role)) {
+      return NextResponse.redirect(new URL("/write", request.url));
+    }
+
+    return NextResponse.next();
+  }
 
   // If user has a session and tries to access public routes, redirect to /write
-  if (sessionCookie && (pathname === "/" || pathname === "/signin")) {
+  if (sessionCookie && isPublicRoute) {
     return NextResponse.redirect(new URL("/write", request.url));
   }
 
   // If user doesn't have a session and tries to access protected routes, redirect to /
-  if (!sessionCookie && pathname !== "/" && pathname !== "/signin") {
+  if (!sessionCookie && !isPublicRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

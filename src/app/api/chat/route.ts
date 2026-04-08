@@ -1,12 +1,11 @@
-import { groq } from "@ai-sdk/groq";
 import {
+  ToolLoopAgent,
   convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
   createUIMessageStreamResponse,
   smoothStream,
   stepCountIs,
-  streamText,
 } from "ai";
 import type { UIMessage } from "ai";
 import {
@@ -23,7 +22,7 @@ import {
   checkAiRateLimit,
   recordAiUsage,
 } from "@/lib/ai-rate-limiter";
-import { mainModel } from "@/lib/nvidia";
+import { mainModel, toolModel } from "@/lib/nvidia";
 export type Metadata = {
   userMessage: string;
   editorContent?: string;
@@ -180,28 +179,20 @@ export async function POST(req: Request) {
         sharedState,
         usageTracking,
       });
-      const result = streamText({
-        model: mainModel,
 
-        system: assistentPrompt({
+      const agent = new ToolLoopAgent({
+        model: mainModel,
+        instructions: assistentPrompt({
           editorContent,
           editorMarkdown,
           editorHeading,
         }),
-
-        messages: await convertToModelMessages(messages),
         tools: {
           get_weather_tool,
-
           write_in_editor_tool,
           write_title_tool,
         },
-
         stopWhen: stepCountIs(5),
-        experimental_transform: smoothStream({
-          delayInMs: 15,
-          chunking: /[^-]*---/,
-        }),
         onFinish: async ({ totalUsage }) => {
           try {
             await recordAiUsage({
@@ -217,6 +208,15 @@ export async function POST(req: Request) {
           }
         },
       });
+
+      const result = await agent.stream({
+        messages: await convertToModelMessages(messages),
+        experimental_transform: smoothStream({
+          delayInMs: 15,
+          chunking: /[^-]*---/,
+        }),
+      });
+
       writer.merge(result.toUIMessageStream());
     },
   });

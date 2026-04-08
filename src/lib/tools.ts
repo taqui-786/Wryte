@@ -6,7 +6,7 @@ import { getCoordinates, getWeather } from "@/lib/serverAction";
 import { groq } from "@ai-sdk/groq";
 import { recordAiUsage } from "@/lib/ai-rate-limiter";
 import type { UsageFeature, UsageModel } from "@/lib/ai-usage-limits";
-import { mainModel } from "./nvidia";
+import { toolModel } from "./nvidia";
 
 // Shared mutable state so the title tool can see content written by the editor tool
 export type SharedEditorState = {
@@ -94,7 +94,7 @@ export const weatherTool = ({
 
       // Step 4: Stream the response
       const result = streamText({
-        model: mainModel,
+        model: toolModel,
         prompt: `
 You are a weather assistant.
 
@@ -244,7 +244,7 @@ export const editorWriteTool = ({
       }
 
       const result = streamText({
-        model: mainModel,
+        model: toolModel,
         output: Output.array({
           element: z.object({
             line: z.number(),
@@ -365,7 +365,7 @@ export const editorTitleTool = ({
       }
 
       const result = streamText({
-        model: mainModel,
+        model: toolModel,
         system: `
 You are an expert editor.
 Create a single, concise title for the document.

@@ -1,6 +1,7 @@
 // 'use server'
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { generateText } from "ai";
+import { ToolLoopAgent, generateText, tool } from "ai";
+import z from "zod";
 export const nim = createOpenAICompatible({
   name: "nim",
   baseURL: "https://integrate.api.nvidia.com/v1",
@@ -9,4 +10,6 @@ export const nim = createOpenAICompatible({
   },
 });
 
-export const mainModel = nim.chatModel("moonshotai/kimi-k2.5"); // working ✅ fast
+export const mainModel = nim.chatModel("nvidia/nemotron-3-super-120b-a12b"); // working ✅ fast - reasoning
+export const toolModel = nim.chatModel("nvidia/nemotron-3-super-120b-a12b"); // working ✅ fast
+
