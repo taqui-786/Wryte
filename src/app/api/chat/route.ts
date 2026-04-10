@@ -1,28 +1,28 @@
+import type { UIMessage } from "ai";
 import {
-  ToolLoopAgent,
   convertToModelMessages,
   createIdGenerator,
   createUIMessageStream,
   createUIMessageStreamResponse,
   smoothStream,
   stepCountIs,
+  ToolLoopAgent,
 } from "ai";
-import type { UIMessage } from "ai";
-import {
-  editorTitleTool,
-  editorWriteTool,
-  weatherTool,
-  createSharedEditorState,
-} from "@/lib/tools";
-import { saveAgentMessages } from "@/lib/serverAction";
-import { assistentPrompt } from "@/lib/prompt-utils";
-import { auth } from "@/lib/auth";
 import {
   buildRateLimitExceededPayload,
   checkAiRateLimit,
   recordAiUsage,
 } from "@/lib/ai-rate-limiter";
-import { mainModel, toolModel } from "@/lib/nvidia";
+import { auth } from "@/lib/auth";
+import { mainModel } from "@/lib/nvidia";
+import { assistentPrompt } from "@/lib/prompt-utils";
+import { saveAgentMessages } from "@/lib/serverAction";
+import {
+  createSharedEditorState,
+  editorTitleTool,
+  editorWriteTool,
+  weatherTool,
+} from "@/lib/tools";
 export type Metadata = {
   userMessage: string;
   editorContent?: string;
@@ -182,6 +182,7 @@ export async function POST(req: Request) {
 
       const agent = new ToolLoopAgent({
         model: mainModel,
+        maxRetries: 1,
         instructions: assistentPrompt({
           editorContent,
           editorMarkdown,
@@ -213,7 +214,6 @@ export async function POST(req: Request) {
         messages: await convertToModelMessages(messages),
         experimental_transform: smoothStream({
           delayInMs: 15,
-          chunking: /[^-]*---/,
         }),
       });
 

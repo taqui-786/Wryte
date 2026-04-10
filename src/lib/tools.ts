@@ -1,11 +1,10 @@
-import { Output, streamText, tool } from "ai";
 import type { UIMessageStreamWriter } from "ai";
+import { Output, streamText, tool } from "ai";
 import { nanoid } from "nanoid";
 import z from "zod";
-import { getCoordinates, getWeather } from "@/lib/serverAction";
-import { groq } from "@ai-sdk/groq";
 import { recordAiUsage } from "@/lib/ai-rate-limiter";
 import type { UsageFeature, UsageModel } from "@/lib/ai-usage-limits";
+import { getCoordinates, getWeather } from "@/lib/serverAction";
 import { toolModel } from "./nvidia";
 
 // Shared mutable state so the title tool can see content written by the editor tool
@@ -48,6 +47,132 @@ const recordToolUsage = async (
     console.error("Failed to record tool usage:", error);
   }
 };
+
+const EditorLineChangeSchema = z.object({
+  line: z.number().int().positive(),
+  type: z.enum(["replace", "delete", "insert"]),
+  content: z.string(),
+});
+
+type EditorLineChange = z.infer<typeof EditorLineChangeSchema>;
+
+const EditorLineChangeLooseSchema = z
+  .object({
+    line: z.number().int().positive().optional(),
+    lineNumber: z.number().int().positive().optional(),
+    type: z
+      .enum([
+        "replace",
+        "delete",
+        "insert",
+        "add",
+        "remove",
+        "update",
+        "create",
+      ])
+      .optional(),
+    action: z
+      .enum([
+        "replace",
+        "delete",
+        "insert",
+        "add",
+        "remove",
+        "update",
+        "create",
+      ])
+      .optional(),
+    content: z.string().optional(),
+    text: z.string().optional(),
+  })
+  .passthrough();
+
+const EditorToolOutputSchema = z
+  .object({
+    elements: z.array(EditorLineChangeLooseSchema).optional(),
+    updates: z.array(EditorLineChangeLooseSchema).optional(),
+    changes: z.array(EditorLineChangeLooseSchema).optional(),
+  })
+  .passthrough();
+
+const normalizeChangeType = (
+  value: string | undefined,
+): EditorLineChange["type"] | null => {
+  if (!value) return null;
+
+  const normalized = value.toLowerCase();
+  if (normalized === "replace" || normalized === "update") return "replace";
+  if (normalized === "delete" || normalized === "remove") return "delete";
+  if (
+    normalized === "insert" ||
+    normalized === "add" ||
+    normalized === "create"
+  )
+    return "insert";
+
+  return null;
+};
+
+const normalizeEditorLineChanges = (input: unknown): EditorLineChange[] => {
+  let parsedInput: unknown = input;
+
+  if (typeof parsedInput === "string") {
+    try {
+      parsedInput = JSON.parse(parsedInput);
+    } catch {
+      return [];
+    }
+  }
+
+  const fromWrapped = EditorToolOutputSchema.safeParse(parsedInput);
+
+  const rawItems: unknown[] = Array.isArray(parsedInput)
+    ? parsedInput
+    : fromWrapped.success
+      ? [
+          ...(fromWrapped.data.elements ?? []),
+          ...(fromWrapped.data.updates ?? []),
+          ...(fromWrapped.data.changes ?? []),
+        ]
+      : [];
+
+  if (rawItems.length === 0) return [];
+
+  const normalized: EditorLineChange[] = [];
+
+  for (let index = 0; index < rawItems.length; index += 1) {
+    const loose = EditorLineChangeLooseSchema.safeParse(rawItems[index]);
+    if (!loose.success) continue;
+
+    const line = loose.data.line ?? loose.data.lineNumber ?? index + 1;
+    const type = normalizeChangeType(loose.data.type ?? loose.data.action);
+    const content = (loose.data.content ?? loose.data.text ?? "").toString();
+
+    if (!type) continue;
+
+    const strict = EditorLineChangeSchema.safeParse({
+      line,
+      type,
+      content,
+    });
+
+    if (strict.success) {
+      normalized.push(strict.data);
+    }
+  }
+
+  return normalized;
+};
+
+const serializeEditorLineChanges = (changes: EditorLineChange[]): string =>
+  JSON.stringify({ elements: changes });
+
+const getReadableContentFromChanges = (changes: EditorLineChange[]): string =>
+  [...changes]
+    .sort((a, b) => a.line - b.line)
+    .map((change) => change.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
 
 export const weatherTool = ({
   writer,
@@ -242,17 +367,7 @@ export const editorWriteTool = ({
       if (selection?.trim()) {
         contextBlocks.push(`Selection to edit:\n${selection.trim()}`);
       }
-
-      const result = streamText({
-        model: toolModel,
-        output: Output.array({
-          element: z.object({
-            line: z.number(),
-            type: z.enum(["replace", "delete", "insert"]),
-            content: z.string(),
-          }),
-        }),
-        system: `
+      const editorSystemPrompt = `
 You are an expert writing assistant.
 Your job is to modify the document based on the user's instructions.
 Return ONLY the lines that changed.
@@ -263,41 +378,107 @@ Rules:
 - Only include lines that were modified.
 - Do not return unchanged lines.
 - If a selection is provided, only modify that selection.
+- If the document is empty, start inserting from line 1 and continue sequentially.
+- Return a JSON object with this exact top-level key: "elements".
+- Each item in "elements" must use keys: "line", "type", "content".
+- Do not use other keys such as "updates" or "action" unless strictly necessary.
 - Use:
   - "replace" when updating a line,
   - "delete" when removing a line,
   - "insert" when adding a new line.
 - The "content" field must contain the updated Markdown for that line (no wrapper tags).
-        `.trim(),
-        prompt: `
+      `.trim();
+
+      const editorPrompt = `
 Action: ${action}
 Instructions: ${instructions}
 
 ${contextBlocks.join("\n\n")}
-        `.trim(),
-        onFinish: async ({ totalUsage }) => {
-          await recordToolUsage(usageTracking, totalUsage);
-        },
-      });
+      `.trim();
 
-      let fullText = "";
-      for await (const textPart of result.textStream) {
-        fullText += textPart;
-        writer.write({
-          type: "data-editor-update",
-          id: generationId,
-          data: {
-            markdown: fullText,
-            status: "streaming",
-            action,
+      let finalChanges: EditorLineChange[] = [];
+      let finalPayload = "";
+
+      try {
+        const result = streamText({
+          model: toolModel,
+          maxRetries: 1,
+          output: Output.object({
+            schema: EditorToolOutputSchema,
+          }),
+          system: editorSystemPrompt,
+          prompt: editorPrompt,
+          onFinish: async ({ totalUsage }) => {
+            await recordToolUsage(usageTracking, totalUsage);
           },
         });
+
+        for await (const partial of result.partialOutputStream) {
+          const partialChanges = normalizeEditorLineChanges(partial);
+          const payload = serializeEditorLineChanges(partialChanges);
+          writer.write({
+            type: "data-editor-update",
+            id: generationId,
+            data: {
+              markdown: payload,
+              status: "streaming",
+              action,
+            },
+          });
+        }
+
+        finalChanges = normalizeEditorLineChanges(await result.output);
+        finalPayload = serializeEditorLineChanges(finalChanges);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.warn(
+          `Structured editor output failed, using fallback: ${errorMessage}`,
+        );
+
+        const fallbackResult = streamText({
+          model: toolModel,
+          maxRetries: 1,
+          system: `
+${editorSystemPrompt}
+Return valid JSON in exactly this format:
+{"elements":[{"line":1,"type":"insert","content":"..."}]}
+Do not include markdown fences.
+          `.trim(),
+          prompt: editorPrompt,
+          onFinish: async ({ totalUsage }) => {
+            await recordToolUsage(usageTracking, totalUsage);
+          },
+        });
+
+        let fallbackText = "";
+        for await (const textPart of fallbackResult.textStream) {
+          fallbackText += textPart;
+          writer.write({
+            type: "data-editor-update",
+            id: generationId,
+            data: {
+              markdown: fallbackText,
+              status: "streaming",
+              action,
+            },
+          });
+        }
+
+        finalChanges = normalizeEditorLineChanges(fallbackText);
+        finalPayload =
+          finalChanges.length > 0
+            ? serializeEditorLineChanges(finalChanges)
+            : fallbackText.trim();
       }
 
-      const finalText = fullText.trim();
+      const finalText =
+        finalPayload.trim() ||
+        serializeEditorLineChanges(finalChanges.length > 0 ? finalChanges : []);
 
       // Store written content so the title tool can use it
-      sharedState.lastWrittenContent = finalText;
+      const readableContent = getReadableContentFromChanges(finalChanges);
+      sharedState.lastWrittenContent = readableContent || finalText;
 
       writer.write({
         type: "data-editor-update",
@@ -366,6 +547,7 @@ export const editorTitleTool = ({
 
       const result = streamText({
         model: toolModel,
+        maxRetries: 1,
         system: `
 You are an expert editor.
 Create a single, concise title for the document.
