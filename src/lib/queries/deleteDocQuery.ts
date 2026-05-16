@@ -1,16 +1,17 @@
 import { toast } from "sonner";
-import { deleteUserDocs } from "../serverAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export const useDeleteDoc = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (docId: string) => deleteUserDocs(docId),
+    mutationFn: async (_docId: string) => {
+      // DB logic removed — no-op stub
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users-docs"] });
       toast.success("Page Deleted Successfully");
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error("Failed To Delete Page", {
         description: error.message,
       });

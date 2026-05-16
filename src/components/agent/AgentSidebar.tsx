@@ -21,7 +21,6 @@ import {
 } from "@/lib/queries/getAgentChatQuery";
 import { parseAiApiError } from "@/lib/ai-api-error";
 import { SUMMARY_EVENT_NAME } from "@/components/my-editor/editorAiSelectionTools";
-import { createAgentChat } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import {
   Reasoning,
@@ -392,6 +391,7 @@ function AgentSidebar({
   const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const ensureActiveChatId = useCallback(async () => {
+    // DB-driven chat creation removed — chatId not passed to server
     if (!docId) {
       toast.custom((t) => (
         <div className="flex items-center gap-2">
@@ -411,26 +411,9 @@ function AgentSidebar({
           </button>
         </div>
       ));
-      return null;
     }
-
-    let chatIdToUse = activeChatId;
-    if (chatIdToUse === null) {
-      try {
-        const chat = await createAgentChat(docId);
-        chatIdToUse = chat.id;
-        setActiveChatId(chat.id);
-        hasLoadedChatRef.current = chat.id;
-        queryClient.invalidateQueries({ queryKey: ["agent-chats", docId] });
-      } catch (error) {
-        console.error("Failed to create a new chat:", error);
-        toast.error("Unable to start a new chat.");
-        return null;
-      }
-    }
-
-    return chatIdToUse;
-  }, [activeChatId, docId, queryClient]);
+    return null;
+  }, [docId]);
 
   // Ai client side calling here - Taqui
   const { messages, sendMessage, setMessages } = useChat<MyUIMessage>({
@@ -469,31 +452,7 @@ function AgentSidebar({
   const isRestoringFromDBRef = useRef(false);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
-  // Load messages when active chat data arrives
-  useEffect(() => {
-    if (activeChatData && hasLoadedChatRef.current !== activeChatData.chatId) {
-      hasLoadedChatRef.current = activeChatData.chatId;
-      isRestoringFromDBRef.current = true;
-      if (activeChatData.messages.length > 0) {
-        const restored = activeChatData.messages.map((m) => {
-          seenMessageIdsRef.current.add(m.messageId);
-          return {
-            id: m.messageId,
-            role: m.role as "user" | "assistant",
-            parts: m.parts as MyUIMessage["parts"],
-          };
-        }) as MyUIMessage[];
-        setMessages(restored);
-      } else {
-        setMessages([]);
-      }
-      setLoadingChatId(null);
-      // Clear on next frame so the effects triggered by setMessages skip
-      requestAnimationFrame(() => {
-        isRestoringFromDBRef.current = false;
-      });
-    }
-  }, [activeChatData, setMessages]);
+  // Message restore from DB removed — activeChatData is always null (stub)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

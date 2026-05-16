@@ -1,19 +1,11 @@
 "use client";
 import { Edit03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useQuery } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import { parseAsString, useQueryState } from "nuqs";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useCreateDoc } from "@/lib/queries/createDocQuery";
-import { useUpdateDoc } from "@/lib/queries/updateDocQuery";
-import {
-  createAgentChat,
-  getDocsById,
-  saveAgentMessages,
-} from "@/lib/serverAction";
 import AgentSidebarLoading from "./agent/AgentSidebarLoading";
 import {
   buildMarkdownFromInsertChanges,
@@ -37,7 +29,6 @@ import {
   ResizablePanelGroup,
 } from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
-import WriteClientSkeleton from "./ui/WriteClientSkeleton";
 
 const AgentSidebar = dynamic(() => import("./agent/AgentSidebar"), {
   loading: () => <AgentSidebarLoading />,
@@ -45,14 +36,16 @@ const AgentSidebar = dynamic(() => import("./agent/AgentSidebar"), {
 });
 
 function WriteClient() {
-  const { mutateAsync: createDoc, isPending } = useCreateDoc();
-  const { mutateAsync: updateDoc, isPending: isUpdatingDoc } = useUpdateDoc();
+  // DB-driven doc queries/mutations removed — editor works in local-only mode
+  const isPending = false;
+  const isUpdatingDoc = false;
+
   const [docs] = useQueryState("page", parseAsString);
   const [heading, setHeading] = useState("");
   const [isEditingHeading, setIsEditingHeading] = useState(false);
   const headingInputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isAutoSaving] = useState(false);
   const [isAIApplying, setIsAIApplying] = useState(false);
   const saveTimeoutRef = useRef<number | null>(null);
   const currentDocIdRef = useRef<string | null>(null);
@@ -72,17 +65,14 @@ function WriteClient() {
   const activeEditorStreamIdRef = useRef<string | null>(null);
   const activeTitleStreamIdRef = useRef<string | null>(null);
   const aiStreamBaseMarkdownRef = useRef<string | null>(null);
-  const { data, isLoading } = useQuery({
-    queryKey: ["page", docs],
-    queryFn: async () => await getDocsById(docs as string),
-    staleTime: 1000 * 60 * 5,
-    enabled: Boolean(docs),
-  });
-  const activeDoc = Array.isArray(data) ? data[0] : data;
-  const activeDocId = activeDoc?.id;
-  const activeDocTitle = activeDoc?.title ?? "";
-  const activeDocContent = activeDoc?.content ?? "";
-  const hasActiveDoc = Boolean(docs && activeDocId);
+
+  // Static/local doc state — no DB fetch
+  const activeDocId = undefined as string | undefined;
+  const activeDocTitle = "";
+  const activeDocContent = "";
+  const hasActiveDoc = false;
+  const isLoading = false;
+
   const agentChatDraftRef = useRef<{
     activeChatId: string | null;
     messages: Array<{
@@ -113,7 +103,6 @@ function WriteClient() {
       latestValueRef.current = activeDocContent;
       lastSavedHeadingRef.current = activeDocTitle;
       lastSavedValueRef.current = activeDocContent;
-      // Allow changes after initial load completes
       setTimeout(() => {
         isInitialLoadRef.current = false;
       }, 100);
@@ -193,47 +182,9 @@ function WriteClient() {
     }
   };
 
-  const queueAutoSave = (nextHeading: string, nextValue: string) => {
-    const docId = docs;
-
-    if (!docId || isInitialLoadRef.current) {
-      return;
-    }
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    if (
-      nextHeading === lastSavedHeadingRef.current &&
-      nextValue === lastSavedValueRef.current
-    ) {
-      return;
-    }
-
-    saveTimeoutRef.current = window.setTimeout(async () => {
-      if (currentDocIdRef.current !== docId) {
-        return;
-      }
-
-      setIsAutoSaving(true);
-
-      try {
-        await updateDoc({
-          docId,
-          title: nextHeading,
-          content: nextValue,
-        });
-        if (currentDocIdRef.current === docId) {
-          lastSavedHeadingRef.current = nextHeading;
-          lastSavedValueRef.current = nextValue;
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsAutoSaving(false);
-      }
-    }, 1000);
+  // Auto-save removed — no-op so all dependent code compiles
+  const queueAutoSave = (_nextHeading: string, _nextValue: string) => {
+    // DB persistence removed
   };
 
   const startAIStream = (
@@ -296,46 +247,22 @@ function WriteClient() {
       activeAIStreamsRef.current = 0;
     };
   }, []);
-  const updateDocHandler = async () => {
-    if (docs) {
-      try {
-        await updateDoc({
-          docId: docs as string,
-          title: heading,
-          content: value,
-        });
-        lastSavedHeadingRef.current = heading;
-        lastSavedValueRef.current = value;
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
+
+  // updateDocHandler — no-op (DB removed)
+  const updateDocHandler = async () => {};
+
   const handleChange = (content: string) => {
     if (content === value) return;
-
     setValue(content);
     latestValueRef.current = content;
-
-    if (!docs || isInitialLoadRef.current || isAIApplyingRef.current) {
-      return;
-    }
-
-    queueAutoSave(latestHeadingRef.current, latestValueRef.current);
   };
 
   const applyHeadingUpdate = (
     newHeading: string,
-    options?: { skipAutoSave?: boolean },
+    _options?: { skipAutoSave?: boolean },
   ) => {
     setHeading(newHeading);
     latestHeadingRef.current = newHeading;
-
-    if (options?.skipAutoSave || isAIApplyingRef.current) {
-      return;
-    }
-
-    queueAutoSave(newHeading, latestValueRef.current);
   };
 
   const handleHeadingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -355,7 +282,6 @@ function WriteClient() {
       () => {
         latestValueRef.current = nextMarkdown;
         setValue(nextMarkdown);
-
         queueAutoSave(latestHeadingRef.current, nextMarkdown);
       },
       editorStreamIntervalRef,
@@ -384,28 +310,10 @@ function WriteClient() {
     return editorRef.current.getMarkdownAfterAIChanges(changes);
   };
 
+  // handleCreatePost — no-op (DB removed, toast guides user)
   const handleCreatePost = async () => {
     if (!docs && heading && value) {
-      const newDoc = await createDoc({ title: heading, content: value });
-      const draftMessages = agentChatDraftRef.current.messages;
-
-      if (newDoc?.id && draftMessages.length > 0) {
-        try {
-          const newChat = await createAgentChat(newDoc.id);
-          await saveAgentMessages(
-            newChat.id,
-            draftMessages.map((message) => ({
-              id: message.id,
-              role: message.role,
-              parts: message.parts,
-            })),
-          );
-        } catch (error) {
-          console.error("Failed to persist draft agent chat:", error);
-          toast.error("Page created, but agent chat could not be saved.");
-        }
-      }
-      return;
+      toast.info("Document saving is currently disabled.");
     } else {
       if (heading.length === 0 && value.length > 0) {
         toast.error("No Title provided ", {
@@ -417,7 +325,7 @@ function WriteClient() {
         });
       } else {
         toast.error("Incomplete Data ", {
-          description: "Please provide Doc Title and altease some content.",
+          description: "Please provide Doc Title and at least some content.",
         });
       }
     }
@@ -475,7 +383,6 @@ function WriteClient() {
     if (nextMarkdown && nextMarkdown !== latestValueRef.current) {
       setValue(nextMarkdown);
       latestValueRef.current = nextMarkdown;
-
       queueAutoSave(latestHeadingRef.current, nextMarkdown);
       endEditorStream(id);
       return;
@@ -515,7 +422,7 @@ function WriteClient() {
   };
 
   if (isLoading) {
-    return <WriteClientSkeleton />;
+    return null;
   }
 
   return (
@@ -526,7 +433,7 @@ function WriteClient() {
             <div className=" max-w-5xl w-full h-full flex flex-col  gap-4  ">
               <WriteClientActions
                 hasActiveDoc={hasActiveDoc}
-                updatedAt={activeDoc?.updatedAt}
+                updatedAt={undefined}
                 isUpdatingDoc={isUpdatingDoc}
                 isAutoSaving={isAutoSaving}
                 isPending={isPending}

@@ -1,11 +1,6 @@
 import { groq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { auth } from "@/lib/auth";
-import {
-  buildRateLimitExceededPayload,
-  checkAiRateLimit,
-  recordAiUsage,
-} from "@/lib/ai-rate-limiter";
 
 type CompletionRequestBody = {
   prompt?: string;
@@ -56,13 +51,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const limit = await checkAiRateLimit(session.user.id, "autocomplete");
-    if (!limit.allowed) {
-      return Response.json(
-        buildRateLimitExceededPayload("autocomplete", limit),
-        { status: 429 },
-      );
-    }
 
     const {
       prompt = "",
@@ -137,17 +125,6 @@ Generate completion:`;
         temperature: 0.4,
         maxOutputTokens: 64,
       });
-
-      try {
-        await recordAiUsage({
-          userId: session.user.id,
-          feature: "autocomplete",
-          model: "openai/gpt-oss-20b",
-          usage: result.usage,
-        });
-      } catch (error) {
-        console.error("Failed to record completion usage:", error);
-      }
 
       return sanitizeCompletion(result.text ?? "");
     };

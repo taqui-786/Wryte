@@ -10,7 +10,7 @@ export const signIn = async () => {
   await authClient.signIn.social(
     {
       provider: "google",
-      callbackURL: "/write",
+      callbackURL: "/dashboard",
     },
     { redirect: "follow" },
   );

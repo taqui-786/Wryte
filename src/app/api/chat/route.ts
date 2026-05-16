@@ -16,7 +16,7 @@ import {
 import { auth } from "@/lib/auth";
 import { mainModel } from "@/lib/nvidia";
 import { assistentPrompt } from "@/lib/prompt-utils";
-import { saveAgentMessages } from "@/lib/serverAction";
+
 import {
   createSharedEditorState,
   editorTitleTool,
@@ -136,21 +136,8 @@ export async function POST(req: Request) {
       size: 16,
     }),
     originalMessages: messages,
-    onFinish: async ({ messages: finalMessages }) => {
-      if (chatId) {
-        try {
-          await saveAgentMessages(
-            chatId,
-            finalMessages.map((m) => ({
-              id: m.id,
-              role: m.role,
-              parts: m.parts,
-            })),
-          );
-        } catch (error) {
-          console.error("Failed to save agent messages:", error);
-        }
-      }
+    onFinish: async () => {
+      // Message persistence removed — DB logic cleaned up
     },
     execute: async ({ writer }) => {
       const usageTracking = {

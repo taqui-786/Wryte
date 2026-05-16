@@ -24,15 +24,15 @@ export async function proxy(request: NextRequest) {
     }
 
     if (!hasAdminRole(session.user.role)) {
-      return NextResponse.redirect(new URL("/write", request.url));
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
     return NextResponse.next();
   }
 
-  // If user has a session and tries to access public routes, redirect to /write
+  // If user has a session and tries to access public routes, redirect to /dashboard
   if (sessionCookie && isPublicRoute) {
-    return NextResponse.redirect(new URL("/write", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // If user doesn't have a session and tries to access protected routes, redirect to /

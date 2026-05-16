@@ -68,6 +68,20 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
+export const thread = pgTable("thread", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docId: text("doc_id")
+    .notNull()
+    .references(() => docs.id, { onDelete: "cascade" }),
+  stateId: uuid("state_id").unique().notNull(),
+  title: text("title").notNull(),  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 export const docs = pgTable("docs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
@@ -75,13 +89,11 @@ export const docs = pgTable("docs", {
     .references(() => user.id, { onDelete: "cascade" }),
 
   title: text("title").notNull(),
-  slug: text("slug").unique(), // optional: for blogs
-  content: text("content").notNull(), // markdown body
-  coverImage: text("cover_image"), // optional main image
+  slug: text("slug").unique(),
+  content: text("content"),
+  coverImage: text("cover_image"),
 
   status: text("status").notNull().default("draft"),
-  // draft | published | archived
-
   isDeleted: boolean("is_deleted").notNull().default(false),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
