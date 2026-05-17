@@ -145,6 +145,61 @@ export const deleteAgentChat = async (_chatId: string): Promise<void> => {
 };
 
 
+// ---------------------------------------------------------------------------
+// Agent chat proxy — calls FastAPI SSE backend
+// ---------------------------------------------------------------------------
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
+export async function* chatWithAgent(
+  message: string,
+  thread_id: string,
+): AsyncGenerator<Record<string, unknown>, void, undefined> {
+  const user = await getServerUserSession();
+  if(!user?.user.id) {
+    throw new Error("User not found");
+  }
+  
+  const res = await fetch(`${BACKEND_URL}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, thread_id, user_id: user.user.id }),
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`Agent backend returned ${res.status}`);
+  }
+  
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  console.log(res);
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data: ")) continue;
+
+      const payload = trimmed.slice(6);
+      if (payload === "DONE") return;
+
+      try {
+        yield JSON.parse(payload);
+      } catch {
+        // skip malformed JSON chunks
+      }
+    }
+  }
+}
+
 export const createNewDoc = async (): Promise<InferSelectModel<typeof docs>> => {
   const user_id = await getServerUserSession();
   if(!user_id?.user.id) {
@@ -175,3 +230,5 @@ export const getDocById = async (docId: string): Promise<InferSelectModel<typeof
   const doc = await db.select().from(docs).where(and(eq(docs.userId, user_id.user.id), eq(docs.id, docId))).limit(1);
   return doc[0] || null;
 };
+
+
