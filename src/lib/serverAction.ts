@@ -1,11 +1,11 @@
 "use server";
 import { db } from "@/db/dbConnect";
-import { docs } from "@/db/schema/auth-schema";
+import { docs, thread } from "@/db/schema/auth-schema";
 import { auth } from "@/lib/auth";
 import { and, eq, InferSelectModel } from "drizzle-orm";
 import { headers } from "next/headers";
 import { cache } from "react";
-
+import axios from "axios";
 // ---------------------------------------------------------------------------
 // Auth helper — kept (uses better-auth, not DB directly)
 // ---------------------------------------------------------------------------
@@ -221,14 +221,40 @@ export const getAllDocs = async (): Promise<InferSelectModel<typeof docs>[]> => 
   const all_docs = await db.select().from(docs).where(eq(docs.userId, user_id.user.id));
   return all_docs;
 };
+export type DocWithThread = InferSelectModel<typeof docs> & {
+  threads: InferSelectModel<typeof thread>[];
+};
 
-export const getDocById = async (docId: string): Promise<InferSelectModel<typeof docs> | null> => {
+export const getDocById = async (docId: string): Promise<DocWithThread | null> => {
+  const session = await getServerUserSession();
+
+  if (!session?.user.id) throw new Error("Unauthorized");
+
+  const doc = await db.query.docs.findFirst({
+    where: (docs, { and, eq }) => and(
+      eq(docs.userId, session.user.id),
+      eq(docs.id, docId)
+    ),
+    with: {
+      threads: true,
+    },
+  });
+
+  return doc ?? null;
+};
+export const createThread = async (docId: string,stateId: string,prompt:string): Promise<InferSelectModel<typeof thread>> => {
   const user_id = await getServerUserSession();
   if(!user_id?.user.id) {
     throw new Error("User not found");
   }
-  const doc = await db.select().from(docs).where(and(eq(docs.userId, user_id.user.id), eq(docs.id, docId))).limit(1);
-  return doc[0] || null;
+  const generateTitle = await axios.post(`${BACKEND_URL}/generate-chat-title`, {
+    conversation:prompt
+  });
+  console.log(generateTitle.data);
+  const res = await db.insert(thread).values({
+    docId,
+    stateId,
+    title: generateTitle.data.title,
+  }).returning();
+  return res[0];
 };
-
-

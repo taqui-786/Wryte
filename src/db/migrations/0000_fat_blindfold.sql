@@ -1,5 +1,3 @@
-
---> statement-breakpoint
 CREATE TABLE "account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
@@ -45,7 +43,7 @@ CREATE TABLE "session" (
 --> statement-breakpoint
 CREATE TABLE "thread" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"doc_id" text NOT NULL,
+	"doc_id" uuid NOT NULL,
 	"state_id" uuid NOT NULL,
 	"title" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,

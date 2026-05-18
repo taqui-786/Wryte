@@ -12,12 +12,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Edit03Icon } from "@hugeicons/core-free-icons";
 import MyEditor from "./my-editor/MyEditor";
 import AgentSidebarNew from "./agent/AgentSidebarNew";
-import { InferSelectModel } from "drizzle-orm";
-import { docs } from "@/db/schema/auth-schema";
+import { DocWithThread } from "@/lib/serverAction";
 
-type Props = {doc: InferSelectModel<typeof docs>};
+type Props = {doc: DocWithThread};
 
 const WriteClientNew: React.FC<Props> = ({doc}) => {
+  
   const [isEditingHeading, setIsEditingHeading] = useState(false);
   const [heading, setHeading] = useState(doc.title || "Untitled");
   const headingInputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +86,7 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
         className="max-h-[calc(100vh-4rem)]"
       >
 
-        <AgentSidebarNew/>
+        <AgentSidebarNew docId={doc.id} allThreads={doc.threads || []} />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

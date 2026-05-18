@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // npx drizzle-kit generate # generate the migration file
@@ -68,19 +69,7 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
-export const thread = pgTable("thread", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  docId: text("doc_id")
-    .notNull()
-    .references(() => docs.id, { onDelete: "cascade" }),
-  stateId: uuid("state_id").unique().notNull(),
-  title: text("title").notNull(),  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+
 
 export const docs = pgTable("docs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -102,3 +91,27 @@ export const docs = pgTable("docs", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+export const thread = pgTable("thread", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  docId: uuid("doc_id")
+    .notNull()
+    .references(() => docs.id, { onDelete: "cascade" }),
+  stateId: uuid("state_id").unique().notNull(),
+  title: text("title").notNull(),  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export const docsRelations = relations(docs, ({ many }) => ({
+  threads: many(thread),
+}));
+
+export const threadRelations = relations(thread, ({ one }) => ({
+  doc: one(docs, {
+    fields: [thread.docId],
+    references: [docs.id],
+  }),
+}));

@@ -21,6 +21,10 @@ import {
 import { StreamingMessage } from "../ai-elements/streaming-message";
 import { Button } from "../ui/button";
 import { Markdown } from "../ui/markdown";
+import { useCreateNewThread } from "@/lib/queries/createNewThread";
+import { threadId } from "worker_threads";
+import { InferSelectModel } from "drizzle-orm";
+import { thread } from "@/db/schema/auth-schema";
 
 type ToolCardProps = {
   statusMessage: string;
@@ -291,7 +295,7 @@ function MessageBubble({
   );
 }
 
-const AgentSidebarNew: React.FC = () => {
+const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<typeof thread>[]}> = ({docId, allThreads}) => {
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -300,8 +304,10 @@ const AgentSidebarNew: React.FC = () => {
   const [messages, setMessages] = useState<
     Array<{ id: string; role: "user" | "assistant"; parts: any[] }>
   >([]);
-  const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
-
+  const {mutate: createNewThread} = useCreateNewThread()
+  const [threads, setThreads] = useState<InferSelectModel<typeof thread>[]>(allThreads);
+  const [activeThreadId, setActiveThreadId] = useState<string|null>(null);
+  const [threadTitle, setThreadTitle] = useState<string>("New Chat");
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text) return;
@@ -320,13 +326,23 @@ const AgentSidebarNew: React.FC = () => {
         role: "assistant" as const,
         parts: [] as any[],
       };
+      const newThreadId = crypto.randomUUID();
+      if (!activeThreadId) {
+        setActiveThreadId(newThreadId);
+        createNewThread({stateId:newThreadId, docId, prompt:text},{
+          onSuccess(data) {
+            console.log("Thread created", data);
+            setThreadTitle(data.title)
+          },
+        });
+      }
 
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
       const res = await fetch("/api/chat-proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, thread_id: threadId }),
+        body: JSON.stringify({ message: text, thread_id: !activeThreadId ? newThreadId : activeThreadId }),
       });
 
       if (!res.ok) throw new Error(`Chat API returned ${res.status}`);
@@ -402,18 +418,17 @@ const AgentSidebarNew: React.FC = () => {
       setIsThinking(false);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [inputValue, threadId]);
+  }, [inputValue, activeThreadId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
-  console.log({messages});
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Heading */}
       <div className="w-full p-2 gap-2 flex items-center justify-between border-b">
         <h2 className="text-sm font-medium truncate block w-full">
-          {messages.length > 0 ? "Chat" : "New Chat"}
+          {threadTitle}
         </h2>
         <div className="flex items-center justify-center gap-1">
           <Button
@@ -421,7 +436,7 @@ const AgentSidebarNew: React.FC = () => {
             size="icon-sm"
             onClick={() => {
               setMessages([]);
-              setThreadId(crypto.randomUUID());
+              setActiveThreadId(crypto.randomUUID());
             }}
           >
             <HugeiconsIcon icon={PlusSignIcon} size="20" />

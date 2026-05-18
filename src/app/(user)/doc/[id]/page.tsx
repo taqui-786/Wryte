@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const doc = await getDocById(id);
 
-  if (!doc) {
+  if (!doc?.id) {
     return {
       title: "Document Not Found",
     };
@@ -27,7 +27,7 @@ const page = async ({ params }: Props) => {
   const { id } = await params;
   const doc = await getDocById(id);
 
-  if (!doc) {
+  if (!doc?.id) {
     notFound();
   }
 
