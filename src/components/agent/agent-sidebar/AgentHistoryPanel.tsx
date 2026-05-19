@@ -1,25 +1,25 @@
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "./time";
-import type { AgentChatSummary } from "./types";
+import { InferSelectModel } from "drizzle-orm";
+import { thread } from "@/db/schema/auth-schema";
 
 type AgentHistoryPanelProps = {
-  allChats?: AgentChatSummary[];
+  allChats?: InferSelectModel<typeof thread>[];
   activeChatId: string | null;
   onSelectChat: (chatId: string) => void;
-  isLoading?: boolean;
 };
 
 export default function AgentHistoryPanel({
   allChats,
   activeChatId,
-  onSelectChat,isLoading
+  onSelectChat
 }: AgentHistoryPanelProps) {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-3">
       <h3 className="text-sm font-medium text-muted-foreground mb-3">
         Recent Chats
       </h3>
-      {isLoading && (
+      {/* {isLoading && (
         <div className="w-full max-w-[280px] flex flex-col gap-1">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="w-full px-3 py-2 rounded-md">
@@ -28,7 +28,7 @@ export default function AgentHistoryPanel({
             </div>
           ))}
         </div>
-      )}
+      )} */}
       {allChats && allChats.length > 0 ? (
         <div className="flex flex-col gap-1">
           {allChats.map((chat) => (

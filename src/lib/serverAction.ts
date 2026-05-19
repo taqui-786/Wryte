@@ -6,6 +6,7 @@ import { and, eq, InferSelectModel } from "drizzle-orm";
 import { headers } from "next/headers";
 import { cache } from "react";
 import axios from "axios";
+import { AIMessageResponse } from "@/components/agent/agent-sidebar/types";
 // ---------------------------------------------------------------------------
 // Auth helper — kept (uses better-auth, not DB directly)
 // ---------------------------------------------------------------------------
@@ -258,3 +259,10 @@ export const createThread = async (docId: string,stateId: string,prompt:string):
   }).returning();
   return res[0];
 };
+
+
+export const getThreadMessages = async (threadId: string):Promise<AIMessageResponse> => {
+  const state = await axios.get(`${BACKEND_URL}/get-thread-messages/${threadId}`);
+
+  return state.data.messages;
+}

@@ -7,307 +7,48 @@ import {
   Menu01Icon,
   PlusSignIcon,
   SentIcon,
-  ToolsIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "../ai-elements/reasoning";
-import { StreamingMessage } from "../ai-elements/streaming-message";
 import { Button } from "../ui/button";
-import { Markdown } from "../ui/markdown";
 import { useCreateNewThread } from "@/lib/queries/createNewThread";
-import { threadId } from "worker_threads";
 import { InferSelectModel } from "drizzle-orm";
 import { thread } from "@/db/schema/auth-schema";
+import AgentHistoryPanel from "./agent-sidebar/AgentHistoryPanel";
+import { useGetThreadMessages } from "@/lib/queries/getThreadMessages";
+import {
+  AIMessageResponse,
+  HumanMessage,
+  AIMessage,
+} from "./agent-sidebar/types";
+import { MessageBubble } from "./agent-sidebar/messageBubble";
+import { normalizeThreadMessages } from "./agent-sidebar/normalizeMessages";
 
-type ToolCardProps = {
-  statusMessage: string;
-  statusBadge: string;
-  isComplete: boolean;
-  previewText?: string;
-  previewIsMarkdown?: boolean;
-};
-
-function getToolCardProps(part: any): ToolCardProps | null {
-  const type: string = part.type ?? "";
-  const status: string = part.data?.status ?? "processing";
-  const isComplete = status === "complete";
-
-  if (type === "data-editor-update") {
-    return {
-      statusMessage: isComplete ? "Editor updated" : "Updating editor",
-      statusBadge: status,
-      isComplete,
-      previewText: part.data?.markdown,
-      previewIsMarkdown: true,
-    };
-  }
-
-  if (type === "data-title-update") {
-    return {
-      statusMessage: isComplete ? "Title updated" : "Updating title",
-      statusBadge: status,
-      isComplete,
-      previewText: part.data?.title,
-    };
-  }
-
-  if (type === "data-tool-reasoning" && !isComplete) {
-    return {
-      statusMessage: `Processing`,
-      statusBadge: status,
-      isComplete,
-      previewText: part.data?.text,
-      previewIsMarkdown: true,
-    };
-  }
-
-  if (type === "data-tool-output" && isComplete) {
-    return {
-      statusMessage: "Task completed",
-      statusBadge: status,
-      isComplete: true,
-      previewText: part.data?.text || "",
-      previewIsMarkdown: true,
-    };
-  }
-
-  return null;
-}
-
-function ToolStatusCard({
-  index,
-  props,
-}: {
-  index: number;
-  props: ToolCardProps;
-}) {
-  return (
-    <div
-      key={index}
-      className={cn(
-        "rounded-md border px-3 py-2 text-sm my-2",
-        props.isComplete
-          ? "border-border bg-muted"
-          : "border-border bg-primary/10",
-      )}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {!props.isComplete ? (
-            <HugeiconsIcon
-              icon={Loading03FreeIcons}
-              className={cn("size-[16px] animate-spin")}
-            />
-          ) : (
-            <HugeiconsIcon icon={ToolsIcon} className={cn("size-[16px]")} />
-          )}
-          <span className="font-medium">{props.statusMessage}</span>
-        </div>
-        <span className="text-xs capitalize text-muted-foreground">
-          {props.statusBadge}
-        </span>
-      </div>
-      {props.previewText && (
-        <div className="text-xs text-muted-foreground mt-2 italic line-clamp-4">
-          {props.previewIsMarkdown ? (
-            props.previewText.startsWith("{") ? (
-              ""
-            ) : (
-              <Markdown className="text-sm">{props.previewText}</Markdown>
-            )
-          ) : props.previewText.startsWith("{") ? (
-            ""
-          ) : (
-            props.previewText
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function parseUserMessage(text: string) {
-  if (!/^<Summarize\b/.test(text)) {
-    return text;
-  }
-
-  const userMsg = text.match(/<userMsg>([\s\S]*?)<\/userMsg>/)?.[1] ?? "";
-  const content =
-    text.match(/<content><!\[CDATA\[([\s\S]*?)\]\]><\/content>/)?.[1] ?? "";
-
-  return (
-    <>
-      <div className="text-base mb-2">{userMsg}</div>
-      <div className="p-2 bg-muted border rounded">
-        <div className="text-sm text-black line-clamp-4">{content}</div>
-      </div>
-    </>
-  );
-}
-
-function MessageBubble({
-  message,
-  parts,
-  isOld,
-}: {
-  message: { id: string; role: "user" | "assistant"; parts: any[] };
-  parts: any[];
-  isOld: boolean;
-}) {
-  const isUser = message.role === "user";
-
-  const reasoningParts = useMemo(
-    () => parts.filter((part: any) => part.type === "reasoning"),
-    [parts],
-  );
-  const hasReasoning = reasoningParts.length > 0;
-  const reasoningText = useMemo(
-    () =>
-      reasoningParts
-        .map((part: any) => part.text ?? "")
-        .filter(Boolean)
-        .join("\n\n"),
-    [reasoningParts],
-  );
-  const isReasoningStreaming = reasoningParts.some(
-    (part: any) => part?.state !== "done",
-  );
-
-  const filteredParts = useMemo(() => {
-    const hasToolCall = parts.some((p: any) => p.type.startsWith("tool-"));
-    const hasDataToolReasoning = parts.some(
-      (p: any) => p.type === "data-tool-reasoning",
-    );
-    const hasDataToolOutput = parts.some(
-      (p: any) => p.type === "data-tool-output",
-    );
-    const hasEditorUpdate = parts.some(
-      (p: any) => p.type === "data-editor-update",
-    );
-    const hasTitleUpdate = parts.some(
-      (p: any) => p.type === "data-title-update",
-    );
-    const hasFinalText = parts.some(
-      (p: any) => p.type === "text" && p.text?.trim(),
-    );
-
-    const hasAnyActivity =
-      hasReasoning ||
-      hasToolCall ||
-      hasDataToolReasoning ||
-      hasDataToolOutput ||
-      hasEditorUpdate ||
-      hasTitleUpdate ||
-      hasFinalText;
-
-    const latestOf = (type: string) =>
-      [...parts].reverse().find((p: any) => p.type === type);
-
-    const latestOutputPart = latestOf("data-tool-output");
-    const latestReasoningPart = latestOf("data-tool-reasoning");
-    const latestEditorUpdatePart = latestOf("data-editor-update");
-    const latestTitleUpdatePart = latestOf("data-title-update");
-
-    return parts.filter((part: any) => {
-      if (part.type === "step-start") return !hasAnyActivity;
-
-      if (part.type.startsWith("tool-")) {
-        return !hasDataToolReasoning && !hasDataToolOutput;
-      }
-
-      if (part.type === "data-tool-reasoning") {
-        if (latestOutputPart?.data?.text?.trim()) return false;
-        return part === latestReasoningPart;
-      }
-
-      if (part.type === "data-tool-output") return part === latestOutputPart;
-
-      if (part.type === "data-editor-update")
-        return part === latestEditorUpdatePart;
-      if (part.type === "data-title-update")
-        return part === latestTitleUpdatePart;
-
-      if (part.type === "text") return Boolean(part.text?.trim());
-
-      return false;
-    });
-  }, [parts, hasReasoning]);
-
-  return (
-    <div
-      className={`mb-4 group flex ${isUser ? "justify-end" : "justify-start"}`}
-      data-user-type={isUser}
-    >
-      <div
-        className={`group-data-[user-type=false]:w-full w-fit 2xl:max-w-[80%] max-w-full rounded-lg p-3 ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-background text-foreground"
-        }`}
-      >
-        {hasReasoning && (
-          <Reasoning
-            key="reasoning-block"
-            className="w-full"
-            isStreaming={isReasoningStreaming}
-          >
-            <ReasoningTrigger />
-            <ReasoningContent>{reasoningText}</ReasoningContent>
-          </Reasoning>
-        )}
-
-        {filteredParts.map((part: any, i: number) => {
-          const cardProps = getToolCardProps(part);
-          const key = `${part.type}-${i}`;
-          if (cardProps) {
-            return <ToolStatusCard key={key} index={i} props={cardProps} />;
-          }
-          if (part.type === "text" && isUser) {
-            return (
-              <div className="flex flex-col" key={key}>
-                {parseUserMessage(part.text)}
-              </div>
-            );
-          }
-          if (part.type === "text") {
-            return (
-              <div className="whitespace-pre-wrap" key={key}>
-                <StreamingMessage
-                  markdown
-                  animate={message.role === "assistant" && !isOld}
-                  text={part.text}
-                />
-              </div>
-            );
-          }
-
-          return null;
-        })}
-      </div>
-    </div>
-  );
-}
-
-const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<typeof thread>[]}> = ({docId, allThreads}) => {
+const AgentSidebarNew: React.FC<{
+  docId: string;
+  allThreads: InferSelectModel<typeof thread>[];
+}> = ({ docId, allThreads }) => {
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [messages, setMessages] = useState<
-    Array<{ id: string; role: "user" | "assistant"; parts: any[] }>
-  >([]);
-  const {mutate: createNewThread} = useCreateNewThread()
-  const [threads, setThreads] = useState<InferSelectModel<typeof thread>[]>(allThreads);
-  const [activeThreadId, setActiveThreadId] = useState<string|null>(null);
+  const [messages, setMessages] = useState<AIMessageResponse>([]);
+  const { mutate: createNewThread } = useCreateNewThread();
+  const [threads, setThreads] =
+    useState<InferSelectModel<typeof thread>[]>(allThreads);
+  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(undefined);
   const [threadTitle, setThreadTitle] = useState<string>("New Chat");
+  const {
+    data: threadMessages,
+    isLoading: isThreadMessagesFetching,
+    isFetched:isThreadMessagesFetched
+  } = useGetThreadMessages(
+    activeThreadId
+      || undefined
+  );
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text) return;
@@ -316,25 +57,51 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
     setIsThinking(true);
 
     try {
-      const userMsg = {
-        id: crypto.randomUUID(),
-        role: "user" as const,
+      const userMsg: HumanMessage = {
+        type: "human",
+        data: {
+          id: crypto.randomUUID(),
+          content: text,
+          additional_kwargs: {},
+          response_metadata: {},
+          type: "human",
+          name: null,
+        },
         parts: [{ type: "text", text }],
       };
-      const assistantMsg = {
-        id: crypto.randomUUID(),
-        role: "assistant" as const,
-        parts: [] as any[],
+      const assistantMsg: AIMessage = {
+        type: "ai",
+        data: {
+          id: crypto.randomUUID(),
+          content: "",
+          additional_kwargs: {},
+          response_metadata: {
+            finish_reason: "stop",
+            model_name: "gpt-4o",
+          },
+          type: "ai",
+          name: null,
+          tool_calls: [],
+          invalid_tool_calls: [],
+          usage_metadata: {
+            input_tokens: 0,
+            output_tokens: 0,
+            total_tokens: 0,
+          },
+        },
+        parts: [],
       };
       const newThreadId = crypto.randomUUID();
       if (!activeThreadId) {
         setActiveThreadId(newThreadId);
-        createNewThread({stateId:newThreadId, docId, prompt:text},{
-          onSuccess(data) {
-            console.log("Thread created", data);
-            setThreadTitle(data.title)
+        createNewThread(
+          { stateId: newThreadId, docId, prompt: text },
+          {
+            onSuccess(data) {
+              setThreadTitle(data.title);
+            },
           },
-        });
+        );
       }
 
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -342,7 +109,10 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
       const res = await fetch("/api/chat-proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, thread_id: !activeThreadId ? newThreadId : activeThreadId }),
+        body: JSON.stringify({
+          message: text,
+          thread_id: !activeThreadId ? newThreadId : activeThreadId,
+        }),
       });
 
       if (!res.ok) throw new Error(`Chat API returned ${res.status}`);
@@ -404,7 +174,7 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
             const last = updated[updated.length - 1];
             updated[updated.length - 1] = {
               ...last,
-              parts: last.parts.map((p: any) =>
+              parts: last?.parts?.map((p: any) =>
                 p.type === "reasoning" ? { ...p, state: "done" } : p,
               ),
             };
@@ -423,6 +193,13 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
+useEffect(() => {
+if(threadMessages && isThreadMessagesFetched){
+  setMessages(normalizeThreadMessages(threadMessages))
+  setViewHistory(false);
+}
+},[threadMessages, isThreadMessagesFetched])
+
   return (
     <div className="h-full flex flex-col gap-4">
       {/* Heading */}
@@ -455,10 +232,25 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
           </Button>
         </div>
       </div>
-      {viewHistory ? (
-        <div className="p-4 text-sm text-muted-foreground">
-          History panel placeholder
+      {isThreadMessagesFetching ? (
+        <div className="flex items-center justify-center h-full">
+          <HugeiconsIcon
+            icon={Loading03FreeIcons}
+            size="20"
+            className="animate-spin"
+          />
         </div>
+      ) : (
+        ""
+      )}
+      {viewHistory ? (
+        <AgentHistoryPanel
+          allChats={allThreads}
+          activeChatId={activeThreadId as string}
+          onSelectChat={(id) => {            
+            setActiveThreadId(id);
+          }}
+        />
       ) : (
         <>
           {/* Body */}
@@ -471,20 +263,15 @@ const AgentSidebarNew: React.FC<{docId: string,allThreads: InferSelectModel<type
                 <p>Start a conversation with Agent...</p>
               </div>
             ) : (
-              messages.map((message, index) => {
-                const isOld = index < messages.length - 1;
-                return (
+              messages.map((message) => (
                   <MessageBubble
-                    key={message.id}
+                    key={message.data.id}
                     message={message}
-                    parts={message.parts}
-                    isOld={isOld}
                   />
-                );
-              })
+              ))
             )}
             {isThinking &&
-              messages[messages.length - 1]?.parts.length === 0 && (
+              messages[messages.length - 1]?.parts?.length === 0 && (
                 <div className="mb-4 flex justify-start transition-opacity duration-300">
                   <div className="max-w-[85%] rounded-lg p-3 bg-transparent text-foreground">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">

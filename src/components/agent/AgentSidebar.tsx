@@ -746,12 +746,13 @@ function AgentSidebar({
         </div>
       </div>
       {viewHistory ? (
-        <AgentHistoryPanel
-          allChats={allChats}
-          activeChatId={activeChatId}
-          isLoading={isLoadingAllChats}
-          onSelectChat={handleSelectChat}
-        />
+        <></>
+        // <AgentHistoryPanel
+        //   allChats={allChats}
+        //   activeChatId={activeChatId}
+        //   isLoading={isLoadingAllChats}
+        //   onSelectChat={handleSelectChat}
+        // />
       ) : (
         <>
           {/* body part scroll area */}
