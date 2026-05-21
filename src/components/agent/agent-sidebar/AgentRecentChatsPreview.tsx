@@ -1,10 +1,9 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { formatRelativeTime } from "./time";
-import type { AgentChatSummary } from "./types";
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 
 type AgentRecentChatsPreviewProps = {
-  chats: AgentChatSummary[];
+  chats: { id: string; title: string; updatedAt: Date }[];
   onSelectChat: (chatId: string) => void;
   loadingChatId?: string | null;
 };

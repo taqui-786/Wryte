@@ -16,12 +16,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const limit = await checkAiRateLimit(session.user.id, "agent_chat");
-  if (!limit.allowed) {
-    return Response.json(buildRateLimitExceededPayload("agent_chat", limit), {
-      status: 429,
-    });
-  }
+  // const limit = await checkAiRateLimit(session.user.id, "agent_chat");
+  // if (!limit.allowed) {
+  //   return Response.json(buildRateLimitExceededPayload("agent_chat", limit), {
+  //     status: 429,
+  //   });
+  // }
 
   const { message, thread_id }: { message: string; thread_id: string } =
     await req.json();

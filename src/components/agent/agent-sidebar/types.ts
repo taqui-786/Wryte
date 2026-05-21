@@ -57,3 +57,51 @@ export interface ToolCall {
   id: string;
   type: "tool_call";
 }
+
+export type AiMessageStreaming = AIMessageChunkStream | ToolMessageStream;
+
+export interface AIMessageChunkStream {
+  type: "AIMessageChunk";
+  content: string;
+  additional_kwargs: {
+    reasoning_content?: string;
+    reasoning?: string;
+    _reasoning_api_fields?: string[];
+    [key: string]: unknown;
+  };
+  response_metadata: {
+    finish_reason?: string;
+    model_name?: string;
+    [key: string]: unknown;
+  };
+  name: string | null;
+  id: string;
+  tool_calls: ToolCall[];
+  invalid_tool_calls: unknown[];
+  usage_metadata: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  } | null;
+  tool_call_chunks: {
+    name: string;
+    args: string;
+    id: string;
+    index: number;
+    type: "tool_call_chunk";
+  }[];
+  chunk_position: string | null;
+  role: "assistant";
+}
+
+export interface ToolMessageStream {
+  type: "tool";
+  content: string;
+  additional_kwargs: Record<string, unknown>;
+  response_metadata: Record<string, unknown>;
+  name: string;
+  id: string;
+  tool_call_id: string;
+  artifact: unknown;
+  status: string;
+}

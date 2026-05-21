@@ -28,17 +28,7 @@ export function normalizeThreadMessages(messages: AIMessageResponse): AIMessageR
       if (msg.data.content) {
         parts.push({ type: "text", text: msg.data.content });
       }
-      if (!msg.data.content && msg.data.tool_calls?.length > 0) {
-        for (const tc of msg.data.tool_calls) {
-          parts.push({
-            type: "tool-call",
-            name: tc.name,
-            args: tc.args,
-            id: tc.id,
-            state: "complete",
-          });
-        }
-      }
+
     }
 
     return { ...msg, parts };

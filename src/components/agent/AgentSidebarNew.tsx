@@ -22,6 +22,7 @@ import {
   AIMessageResponse,
   HumanMessage,
   AIMessage,
+  AiMessageStreaming,
 } from "./agent-sidebar/types";
 import { MessageBubble } from "./agent-sidebar/messageBubble";
 import { normalizeThreadMessages } from "./agent-sidebar/normalizeMessages";
@@ -46,8 +47,8 @@ const AgentSidebarNew: React.FC<{
     isLoading: isThreadMessagesFetching,
     isFetched:isThreadMessagesFetched
   } = useGetThreadMessages(
-    activeThreadId
-      || undefined
+    (activeThreadId && allThreads.find((t) => t.id === activeThreadId)) ? activeThreadId 
+      : undefined
   );
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
@@ -111,14 +112,11 @@ const AgentSidebarNew: React.FC<{
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
-          thread_id: !activeThreadId ? newThreadId : activeThreadId,
+          thread_id: activeThreadId === undefined ? newThreadId : activeThreadId,
         }),
       });
 
       if (!res.ok) throw new Error(`Chat API returned ${res.status}`);
-
-      let accReasoning = "";
-      let accContent = "";
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -135,30 +133,59 @@ const AgentSidebarNew: React.FC<{
         for (const line of lines) {
           if (!line.trim()) continue;
           try {
-            const chunk = JSON.parse(line);
-            accReasoning += chunk.reasoning ?? "";
-            accContent += chunk.content ?? "";
-
-            const parts: any[] = [];
-            if (accReasoning.trim()) {
-              parts.push({
-                type: "reasoning",
-                text: accReasoning,
-                state: "streaming",
-              });
-            }
-            if (accContent.trim()) {
-              parts.push({ type: "text", text: accContent });
-            }
+            const chunk: AiMessageStreaming = JSON.parse(line);
 
             setMessages((prev) => {
               const updated = [...prev];
-              if (updated.length > 0) {
-                updated[updated.length - 1] = {
-                  ...updated[updated.length - 1],
-                  parts,
+              const last = updated[updated.length - 1];
+              if (last.type !== "ai") return prev;
+
+              const data = { ...last.data };
+              data.content = (data.content || "") + (chunk.type !== 'tool' ? chunk.content : "");
+
+              if (chunk.type === "AIMessageChunk") {
+                data.additional_kwargs = {
+                  ...data.additional_kwargs,
+                  reasoning:
+                    (data.additional_kwargs.reasoning || "") +
+                    (chunk.additional_kwargs?.reasoning || ""),
+                  reasoning_content:
+                    (data.additional_kwargs.reasoning_content || "") +
+                    (chunk.additional_kwargs?.reasoning_content || ""),
                 };
+
+                for (const tc of chunk.tool_calls) {
+                  if (!data.tool_calls.some((t) => t.id === tc.id)) {
+                    data.tool_calls = [...data.tool_calls, tc];
+                  }
+                }
+
+                if (chunk.usage_metadata) {
+                  data.usage_metadata = chunk.usage_metadata;
+                }
+
+                if (chunk.response_metadata?.finish_reason) {
+                  data.response_metadata = {
+                    ...data.response_metadata,
+                    ...chunk.response_metadata,
+                  };
+                }
               }
+
+              const parts: any[] = [];
+              const reasoning = data.additional_kwargs?.reasoning;
+              if (reasoning?.trim()) {
+                parts.push({
+                  type: "reasoning",
+                  text: reasoning,
+                  state: "streaming",
+                });
+              }
+              if (data.content?.trim()) {
+                parts.push({ type: "text", text: data.content });
+              }
+
+              updated[updated.length - 1] = { ...last, data, parts };
               return updated;
             });
           } catch {
@@ -167,21 +194,19 @@ const AgentSidebarNew: React.FC<{
         }
       }
 
-      if (accReasoning.trim()) {
-        setMessages((prev) => {
-          const updated = [...prev];
-          if (updated.length > 0) {
-            const last = updated[updated.length - 1];
-            updated[updated.length - 1] = {
-              ...last,
-              parts: last?.parts?.map((p: any) =>
-                p.type === "reasoning" ? { ...p, state: "done" } : p,
-              ),
-            };
-          }
-          return updated;
-        });
-      }
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.type === "ai") {
+          updated[updated.length - 1] = {
+            ...last,
+            parts: last.parts?.map((p: any) =>
+              p.type === "reasoning" ? { ...p, state: "done" } : p,
+            ),
+          };
+        }
+        return updated;
+      });
     } catch (error) {
       console.error("Chat error:", error);
     } finally {
