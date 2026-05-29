@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ToolsIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -50,31 +50,41 @@ export function MessageBubble({
 }: {
   message: HumanMessage | AIMessage;
 }) {
+const [isReasoningStreaming, setIsReasoningStreaming] = useState(false);
+
+const prevReasoningRef = useRef("");
+const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+
+
   const isUser = message.type === "human";
   const parts = message.parts ?? [];
   const toolCalls = message.type === "ai" ? message.data.tool_calls : [];
 
-  const reasoningParts = useMemo(
-    () => parts.filter((p: any) => p.type === "reasoning"),
-    [parts],
-  );
-  const reasoningText = useMemo(
-    () =>
-      reasoningParts
-        .map((p: any) => p.text ?? "")
-        .filter(Boolean)
-        .join("\n\n"),
-    [reasoningParts],
-  );
-  const isReasoningStreaming = reasoningParts.some(
-    (p: any) => p.state !== "done",
-  );
+  const reasoningText = message.data.additional_kwargs.reasoning as string;
+  console.log({ isReasoningStreaming });
 
   const displayParts = useMemo(
     () => parts.filter((p: any) => p.type === "text"),
     [parts],
   );
 
+
+useEffect(() => {
+  if (reasoningText !== prevReasoningRef.current) {
+    setIsReasoningStreaming(true);
+
+    prevReasoningRef.current = reasoningText;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      setIsReasoningStreaming(false);
+    }, 500);
+  }
+}, [reasoningText]);
   return (
     <div
       className={`mb-4 group flex ${isUser ? "justify-end" : "justify-start"}`}
@@ -87,14 +97,14 @@ export function MessageBubble({
             : "bg-background text-foreground"
         }`}
       >
-        {reasoningParts.length > 0 && (
+        {reasoningText?.length > 0 && (
           <Reasoning
             key="reasoning-block"
             className="w-full"
             isStreaming={isReasoningStreaming}
           >
             <ReasoningTrigger />
-            <ReasoningContent>{reasoningText}</ReasoningContent>
+            <ReasoningContent>{reasoningText ?? ""}</ReasoningContent>
           </Reasoning>
         )}
 
@@ -102,25 +112,13 @@ export function MessageBubble({
           <ToolCallCard key={tc.id} toolCall={tc} />
         ))}
 
-        {displayParts.map((part: any, i: number) => {
-          const key = `text-${i}`;
-          if (isUser) {
-            return (
-              <div className="flex flex-col" key={key}>
-                {parseUserMessage(part.text)}
-              </div>
-            );
-          }
-          return (
-            <div className="whitespace-pre-wrap" key={key}>
-              <StreamingMessage
-                markdown
-                animate={false}
-                text={part.text}
-              />
-            </div>
-          );
-        })}
+        <div className="whitespace-pre-wrap" key={`text-${message.data.id}`}>
+          <StreamingMessage
+            markdown
+            animate={message.type === "ai"}
+            text={message.data.content ?? ""}
+          />
+        </div>
       </div>
     </div>
   );

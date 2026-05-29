@@ -1,5 +1,13 @@
 import { relations } from "drizzle-orm";
-import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 // npx drizzle-kit generate # generate the migration file
 // npx drizzle-kit migrate # apply the migration
@@ -69,8 +77,6 @@ export const verification = pgTable("verification", {
     .notNull(),
 });
 
-
-
 export const docs = pgTable("docs", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
@@ -97,14 +103,23 @@ export const thread = pgTable("thread", {
     .notNull()
     .references(() => docs.id, { onDelete: "cascade" }),
   stateId: uuid("state_id").unique().notNull(),
-  title: text("title").notNull(),  
+  title: text("title").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
 });
-
+export const messages = pgTable("messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => thread.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["human", "ai"] }).notNull(),
+  index:integer("index").notNull(),
+  data: jsonb("data").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 export const docsRelations = relations(docs, ({ many }) => ({
   threads: many(thread),
 }));

@@ -263,6 +263,7 @@ export const createThread = async (docId: string,stateId: string,prompt:string):
 
 export const getThreadMessages = async (threadId: string):Promise<AIMessageResponse> => {
   const state = await axios.get(`${BACKEND_URL}/get-thread-messages/${threadId}`);
-
+  console.log(state.data.messages);
+  
   return state.data.messages;
 }

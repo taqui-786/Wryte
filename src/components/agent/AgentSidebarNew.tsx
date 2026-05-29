@@ -124,7 +124,9 @@ const AgentSidebarNew: React.FC<{
 
       while (true) {
         const { done, value } = await reader.read();
+        
         if (done) break;
+        
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -134,7 +136,7 @@ const AgentSidebarNew: React.FC<{
           if (!line.trim()) continue;
           try {
             const chunk: AiMessageStreaming = JSON.parse(line);
-
+            
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
@@ -194,19 +196,21 @@ const AgentSidebarNew: React.FC<{
         }
       }
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last.type === "ai") {
-          updated[updated.length - 1] = {
-            ...last,
-            parts: last.parts?.map((p: any) =>
-              p.type === "reasoning" ? { ...p, state: "done" } : p,
-            ),
-          };
-        }
-        return updated;
-      });
+      // setMessages((prev) => {
+      //   const updated = [...prev];
+      //   const last = updated[updated.length - 1];
+      //   if (last.type === "ai") {
+      //     updated[updated.length - 1] = {
+      //       ...last,
+      //       parts: last.parts?.map((p: any) =>
+      //         p.type === "reasoning" ? { ...p, state: "done" } : p,
+      //       ),
+      //     };
+      //   }
+      //   console.log({updated});
+        
+      //   return updated;
+      // });
     } catch (error) {
       console.error("Chat error:", error);
     } finally {
@@ -218,8 +222,13 @@ const AgentSidebarNew: React.FC<{
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
+  console.log({messages});
+  
 useEffect(() => {
-if(threadMessages && isThreadMessagesFetched){
+  console.log('Hey',threadMessages);
+  
+  if(threadMessages && isThreadMessagesFetched){
+  console.log('Yesss');
   setMessages(normalizeThreadMessages(threadMessages))
   setViewHistory(false);
 }
