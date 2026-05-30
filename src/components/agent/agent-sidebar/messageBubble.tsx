@@ -11,6 +11,7 @@ import {
 import { StreamingMessage } from "@/components/ai-elements/streaming-message";
 import { HumanMessage, AIMessage, ToolCall } from "./types";
 
+
 function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
   const argsStr = Object.entries(toolCall.args)
     .map(([k, v]) => `${k}: ${v}`)
@@ -50,41 +51,33 @@ export function MessageBubble({
 }: {
   message: HumanMessage | AIMessage;
 }) {
-const [isReasoningStreaming, setIsReasoningStreaming] = useState(false);
+  const [isReasoningStreaming, setIsReasoningStreaming] = useState(false);
 
-const prevReasoningRef = useRef("");
-const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-
+  const prevReasoningRef = useRef("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isUser = message.type === "human";
   const parts = message.parts ?? [];
   const toolCalls = message.type === "ai" ? message.data.tool_calls : [];
 
   const reasoningText = message.data.additional_kwargs.reasoning as string;
-  console.log({ isReasoningStreaming });
-
-  const displayParts = useMemo(
-    () => parts.filter((p: any) => p.type === "text"),
-    [parts],
-  );
 
 
-useEffect(() => {
-  if (reasoningText !== prevReasoningRef.current) {
-    setIsReasoningStreaming(true);
+  useEffect(() => {
+    if (reasoningText !== prevReasoningRef.current) {
+      setIsReasoningStreaming(true);
 
-    prevReasoningRef.current = reasoningText;
+      prevReasoningRef.current = reasoningText;
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        setIsReasoningStreaming(false);
+      }, 500);
     }
-
-    timeoutRef.current = setTimeout(() => {
-      setIsReasoningStreaming(false);
-    }, 500);
-  }
-}, [reasoningText]);
+  }, [reasoningText]);
   return (
     <div
       className={`mb-4 group flex ${isUser ? "justify-end" : "justify-start"}`}
@@ -98,10 +91,12 @@ useEffect(() => {
         }`}
       >
         {reasoningText?.length > 0 && (
+      
           <Reasoning
             key="reasoning-block"
             className="w-full"
             isStreaming={isReasoningStreaming}
+            defaultOpen={true}
           >
             <ReasoningTrigger />
             <ReasoningContent>{reasoningText ?? ""}</ReasoningContent>
