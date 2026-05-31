@@ -9,211 +9,162 @@ import {
   SentIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import type { InferSelectModel } from "drizzle-orm";
 import { useCallback, useEffect, useRef, useState } from "react";
-
+import type { thread } from "@/db/schema/auth-schema";
+import { readChatStream } from "@/lib/chat-stream";
+import { useCreateNewThread } from "@/lib/queries/createNewThread";
+import { useGetThreadMessages } from "@/lib/queries/getThreadMessages";
+import { useSaveAgentMessages } from "@/lib/queries/saveMessagesQuery";
+import { updateLastAiMessage } from "@/lib/update-last-message";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-import { useCreateNewThread } from "@/lib/queries/createNewThread";
-import { InferSelectModel } from "drizzle-orm";
-import { thread } from "@/db/schema/auth-schema";
 import AgentHistoryPanel from "./agent-sidebar/AgentHistoryPanel";
-import { useGetThreadMessages } from "@/lib/queries/getThreadMessages";
-import {
-  AIMessageResponse,
-  HumanMessage,
-  AIMessage,
-  AiMessageStreaming,
-} from "./agent-sidebar/types";
 import { MessageBubble } from "./agent-sidebar/messageBubble";
 import { normalizeThreadMessages } from "./agent-sidebar/normalizeMessages";
+import type {
+  AIMessage,
+  AIMessageResponse,
+  HumanMessage,
+} from "./agent-sidebar/types";
 
 const AgentSidebarNew: React.FC<{
   docId: string;
+  userId: string;
   allThreads: InferSelectModel<typeof thread>[];
-}> = ({ docId, allThreads }) => {
+}> = ({ docId, userId, allThreads }) => {
+  console.log({allThreads});
+  
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<AIMessageResponse>([]);
-  const { mutate: createNewThread } = useCreateNewThread();
   const [threads, setThreads] =
     useState<InferSelectModel<typeof thread>[]>(allThreads);
-  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(undefined);
+  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
+    undefined,
+  );
   const [threadTitle, setThreadTitle] = useState<string>("New Chat");
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const newMessageToSaveRef = useRef<AIMessageResponse>([]);
+  // My Queries -----------------
+  const { mutate: saveAgentMessages, isPending: isSavingMessages } =
+    useSaveAgentMessages();
+  const { mutateAsync:  createNewThread } = useCreateNewThread();
   const {
     data: threadMessages,
     isLoading: isThreadMessagesFetching,
-    isFetched:isThreadMessagesFetched
+    isFetched: isThreadMessagesFetched,
   } = useGetThreadMessages(
-    (activeThreadId && allThreads.find((t) => t.id === activeThreadId)) ? activeThreadId 
-      : undefined
+    activeThreadId && allThreads.find((t) => t.id === activeThreadId)
+      ? activeThreadId
+      : undefined,
   );
+  function handleSaveMessages(messagesToSave: Array<HumanMessage | AIMessage>,myThreadId:string) {
+    console.log({ myThreadId });
+
+    if (!myThreadId) return;
+    saveAgentMessages({
+      threadId: myThreadId,
+      messages: messagesToSave,
+    });
+  }
+
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text) return;
-
+    let newThreadId:string | null = threadId;
     setInputValue("");
     setIsThinking(true);
 
-    try {
-      const userMsg: HumanMessage = {
+    const userMsg: HumanMessage = {
+      type: "human",
+      data: {
+        id: crypto.randomUUID(),
+        content: text,
+        additional_kwargs: {},
+        response_metadata: {},
         type: "human",
-        data: {
-          id: crypto.randomUUID(),
-          content: text,
-          additional_kwargs: {},
-          response_metadata: {},
-          type: "human",
-          name: null,
+        name: null,
+      },
+      parts: [{ type: "text", text }],
+    };
+    const assistantMsg: AIMessage = {
+      type: "ai",
+      data: {
+        id: crypto.randomUUID(),
+        content: "",
+        additional_kwargs: {},
+        response_metadata: {
+          finish_reason: "stop",
+          model_name: "gpt-4o",
         },
-        parts: [{ type: "text", text }],
-      };
-      const assistantMsg: AIMessage = {
         type: "ai",
-        data: {
-          id: crypto.randomUUID(),
-          content: "",
-          additional_kwargs: {},
-          response_metadata: {
-            finish_reason: "stop",
-            model_name: "gpt-4o",
-          },
-          type: "ai",
-          name: null,
-          tool_calls: [],
-          invalid_tool_calls: [],
-          usage_metadata: {
-            input_tokens: 0,
-            output_tokens: 0,
-            total_tokens: 0,
+        name: null,
+        tool_calls: [],
+        invalid_tool_calls: [],
+        usage_metadata: {
+          input_tokens: 0,
+          output_tokens: 0,
+          total_tokens: 0,
+        },
+      },
+      parts: [],
+    };
+
+    const randThreadId = crypto.randomUUID();
+    if (!activeThreadId) {
+      setActiveThreadId(randThreadId);
+      await createNewThread(
+        { stateId: randThreadId, docId, prompt: text },
+        {
+          onSuccess(data) {
+            setThreadTitle(data.title);
+            setThreadId(data.id);
+            newThreadId = data.id;
           },
         },
-        parts: [],
-      };
-      const newThreadId = crypto.randomUUID();
-      if (!activeThreadId) {
-        setActiveThreadId(newThreadId);
-        createNewThread(
-          { stateId: newThreadId, docId, prompt: text },
-          {
-            onSuccess(data) {
-              setThreadTitle(data.title);
-            },
+      );
+    }
+
+    const thread_id = activeThreadId ?? randThreadId;
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    newMessageToSaveRef.current = [userMsg, assistantMsg];
+
+    abortRef.current?.abort();
+    const ab = new AbortController();
+    abortRef.current = ab;
+
+    const TIMEOUT_MS = 30_000;
+    const timeoutId = setTimeout(() => ab.abort(), TIMEOUT_MS);
+
+    try {
+      await readChatStream(
+        { message: text, thread_id, user_id: userId },
+        {
+          onChunk: (chunk) => {
+            setMessages((prev) => updateLastAiMessage(prev, chunk));
+            newMessageToSaveRef.current = updateLastAiMessage(
+              newMessageToSaveRef.current,
+              chunk,
+            );
           },
-        );
-      }
-
-      setMessages((prev) => [...prev, userMsg, assistantMsg]);
-
-      const res = await fetch("/api/chat-proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          thread_id: activeThreadId === undefined ? newThreadId : activeThreadId,
-        }),
-      });
-
-      if (!res.ok) throw new Error(`Chat API returned ${res.status}`);
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-        
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const chunk: AiMessageStreaming = JSON.parse(line);
-            
-            setMessages((prev) => {
-              const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last.type !== "ai") return prev;
-
-              const data = { ...last.data };
-              data.content = (data.content || "") + (chunk.type !== 'tool' ? chunk.content : "");
-
-              if (chunk.type === "AIMessageChunk") {
-                data.additional_kwargs = {
-                  ...data.additional_kwargs,
-                  reasoning:
-                    (data.additional_kwargs.reasoning || "") +
-                    (chunk.additional_kwargs?.reasoning || ""),
-                  reasoning_content:
-                    (data.additional_kwargs.reasoning_content || "") +
-                    (chunk.additional_kwargs?.reasoning_content || ""),
-                };
-
-                for (const tc of chunk.tool_calls) {
-                  if (!data.tool_calls.some((t) => t.id === tc.id)) {
-                    data.tool_calls = [...data.tool_calls, tc];
-                  }
-                }
-
-                if (chunk.usage_metadata) {
-                  data.usage_metadata = chunk.usage_metadata;
-                }
-
-                if (chunk.response_metadata?.finish_reason) {
-                  data.response_metadata = {
-                    ...data.response_metadata,
-                    ...chunk.response_metadata,
-                  };
-                }
-              }
-
-              const parts: any[] = [];
-              const reasoning = data.additional_kwargs?.reasoning;
-              if (reasoning?.trim()) {
-                parts.push({
-                  type: "reasoning",
-                  text: reasoning,
-                  state: "streaming",
-                });
-              }
-              if (data.content?.trim()) {
-                parts.push({ type: "text", text: data.content });
-              }
-
-              updated[updated.length - 1] = { ...last, data, parts };
-              return updated;
-            });
-          } catch {
-            // skip malformed JSON
-          }
-        }
-      }
-
-      // setMessages((prev) => {
-      //   const updated = [...prev];
-      //   const last = updated[updated.length - 1];
-      //   if (last.type === "ai") {
-      //     updated[updated.length - 1] = {
-      //       ...last,
-      //       parts: last.parts?.map((p: any) =>
-      //         p.type === "reasoning" ? { ...p, state: "done" } : p,
-      //       ),
-      //     };
-      //   }
-      //   console.log({updated});
-        
-      //   return updated;
-      // });
+          onDone: () => {
+            handleSaveMessages(newMessageToSaveRef.current, newThreadId as string);
+          },
+        },
+        { signal: ab.signal },
+      );
     } catch (error) {
-      console.error("Chat error:", error);
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("Chat stream failed:", error);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsThinking(false);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
@@ -222,17 +173,13 @@ const AgentSidebarNew: React.FC<{
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
-  console.log({messages});
-  
-useEffect(() => {
-  console.log('Hey',threadMessages);
-  
-  if(threadMessages && isThreadMessagesFetched){
-  console.log('Yesss');
-  setMessages(normalizeThreadMessages(threadMessages))
-  setViewHistory(false);
-}
-},[threadMessages, isThreadMessagesFetched])
+
+  useEffect(() => {
+    if (threadMessages && isThreadMessagesFetched) {
+      setMessages(normalizeThreadMessages(threadMessages));
+      setViewHistory(false);
+    }
+  }, [threadMessages, isThreadMessagesFetched]);
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -281,7 +228,7 @@ useEffect(() => {
         <AgentHistoryPanel
           allChats={allThreads}
           activeChatId={activeThreadId as string}
-          onSelectChat={(id) => {            
+          onSelectChat={(id) => {
             setActiveThreadId(id);
           }}
         />
@@ -298,10 +245,7 @@ useEffect(() => {
               </div>
             ) : (
               messages.map((message) => (
-                  <MessageBubble
-                    key={message.data.id}
-                    message={message}
-                  />
+                <MessageBubble key={message.data.id} message={message} />
               ))
             )}
             {isThinking &&

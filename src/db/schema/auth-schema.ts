@@ -124,9 +124,17 @@ export const docsRelations = relations(docs, ({ many }) => ({
   threads: many(thread),
 }));
 
-export const threadRelations = relations(thread, ({ one }) => ({
+export const threadRelations = relations(thread, ({ one, many }) => ({
   doc: one(docs, {
     fields: [thread.docId],
     references: [docs.id],
+  }),
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  thread: one(thread, {
+    fields: [messages.threadId],
+    references: [thread.id],
   }),
 }));

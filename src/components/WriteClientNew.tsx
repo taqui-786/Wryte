@@ -25,7 +25,6 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
   const editorRef = useRef<any>(null);
   const [value, setValue] = useState(doc.content || "");
   const handleChange = (content: string) => {
-    console.log(content);
     setValue(content);
   };
   return (
@@ -86,7 +85,7 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
         className="max-h-[calc(100vh-4rem)]"
       >
 
-        <AgentSidebarNew docId={doc.id} allThreads={doc.threads || []} />
+        <AgentSidebarNew docId={doc.id} userId={doc.userId} allThreads={doc.threads || []} />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

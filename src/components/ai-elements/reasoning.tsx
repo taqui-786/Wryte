@@ -133,7 +133,6 @@ const getThinkingMessage = (isStreaming: boolean, duration?: number) => {
 export const ReasoningTrigger = memo(
   ({ className, children, ...props }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
-console.log(isStreaming);
     return (
       <CollapsibleTrigger
         className={cn(

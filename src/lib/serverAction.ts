@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/db/dbConnect";
-import { docs, thread } from "@/db/schema/auth-schema";
+import { docs, messages, thread } from "@/db/schema/auth-schema";
 import { auth } from "@/lib/auth";
 import { and, eq, InferSelectModel } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -135,11 +135,28 @@ export const createAgentChat = async (
 };
 
 export const saveAgentMessages = async (
-  _chatId: string,
-  _messages: Array<{ id: string; role: string; parts: unknown }>,
+  thread_id: string,
+  msgs: AIMessageResponse,
 ): Promise<void> => {
-  // no-op
-};
+  try {
+    console.log(msgs);
+    
+  const work = await db.insert(messages).values(
+  msgs.map((msg, index) => ({
+    threadId: thread_id,
+    role: msg.type,          
+    index,
+    data: msg.data,          
+  }))
+);
+if (work) {
+  console.log("Agent messages saved successfully");
+}
+  } catch (error) {
+    console.error("Error saving agent messages:", error);
+    throw new Error("Error saving agent messages");
+  }
+}
 
 export const deleteAgentChat = async (_chatId: string): Promise<void> => {
   // no-op
