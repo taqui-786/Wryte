@@ -29,6 +29,7 @@ export interface AIMessage extends BaseMessage {
 
     additional_kwargs: {
       reasoning_content?: string;
+      isReasoning?:Boolean,
       reasoning?: string;
       _reasoning_api_fields?: string[];
       [key: string]: unknown;

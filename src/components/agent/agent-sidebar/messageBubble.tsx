@@ -51,33 +51,16 @@ export function MessageBubble({
 }: {
   message: HumanMessage | AIMessage;
 }) {
-  const [isReasoningStreaming, setIsReasoningStreaming] = useState(false);
 
-  const prevReasoningRef = useRef("");
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isUser = message.type === "human";
   const parts = message.parts ?? [];
   const toolCalls = message.type === "ai" ? message.data.tool_calls : [];
 
-  const reasoningText = message.data.additional_kwargs.reasoning as string;
+  const reasoningText = message.data.additional_kwargs.reasoning_content as string;
 
 
-  useEffect(() => {
-    if (reasoningText !== prevReasoningRef.current) {
-      setIsReasoningStreaming(true);
 
-      prevReasoningRef.current = reasoningText;
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        setIsReasoningStreaming(false);
-      }, 500);
-    }
-  }, [reasoningText]);
   return (
     <div
       className={`mb-4 group flex ${isUser ? "justify-end" : "justify-start"}`}
@@ -95,8 +78,8 @@ export function MessageBubble({
           <Reasoning
             key="reasoning-block"
             className="w-full"
-            isStreaming={isReasoningStreaming}
-            defaultOpen={true}
+            defaultOpen={parts?.length > 0}
+            isStreaming={ message.data.additional_kwargs?.isReasoning as boolean}
           >
             <ReasoningTrigger />
             <ReasoningContent>{reasoningText ?? ""}</ReasoningContent>
@@ -110,7 +93,7 @@ export function MessageBubble({
         <div className="whitespace-pre-wrap" key={`text-${message.data.id}`}>
           <StreamingMessage
             markdown
-            animate={message.type === "ai"}
+            animate={parts?.length > 0 &&  message.type === "ai"}
             text={message.data.content ?? ""}
           />
         </div>

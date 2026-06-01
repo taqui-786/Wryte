@@ -20,6 +20,7 @@ export function updateLastAiMessage(
   if (chunk.type === "AIMessageChunk") {
     data.additional_kwargs = {
       ...data.additional_kwargs,
+      isReasoning:chunk.additional_kwargs?.reasoning ? true:false,
       reasoning:
         (data.additional_kwargs.reasoning || "") +
         (chunk.additional_kwargs?.reasoning || ""),

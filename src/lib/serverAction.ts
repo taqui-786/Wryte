@@ -254,7 +254,11 @@ export const getDocById = async (docId: string): Promise<DocWithThread | null> =
       eq(docs.id, docId)
     ),
     with: {
-      threads: true,
+      threads: {
+        with: {
+          messages: true,
+        },
+      },
     },
   });
 

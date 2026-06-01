@@ -3,6 +3,7 @@
 import {
   Brain01FreeIcons,
   Clock04Icon,
+  Loading02Icon,
   Loading03FreeIcons,
   Menu01Icon,
   PlusSignIcon,
@@ -11,7 +12,7 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { InferSelectModel } from "drizzle-orm";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { thread } from "@/db/schema/auth-schema";
+import type { messages, thread } from "@/db/schema/auth-schema";
 import { readChatStream } from "@/lib/chat-stream";
 import { useCreateNewThread } from "@/lib/queries/createNewThread";
 import { useGetThreadMessages } from "@/lib/queries/getThreadMessages";
@@ -31,10 +32,11 @@ import type {
 const AgentSidebarNew: React.FC<{
   docId: string;
   userId: string;
-  allThreads: InferSelectModel<typeof thread>[];
+  allThreads: (InferSelectModel<typeof thread> & {
+    messages: InferSelectModel<typeof messages>[];
+  })[];
 }> = ({ docId, userId, allThreads }) => {
-  console.log({allThreads});
-  
+
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,19 +55,13 @@ const AgentSidebarNew: React.FC<{
   // My Queries -----------------
   const { mutate: saveAgentMessages, isPending: isSavingMessages } =
     useSaveAgentMessages();
-  const { mutateAsync:  createNewThread } = useCreateNewThread();
-  const {
-    data: threadMessages,
-    isLoading: isThreadMessagesFetching,
-    isFetched: isThreadMessagesFetched,
-  } = useGetThreadMessages(
-    activeThreadId && allThreads.find((t) => t.id === activeThreadId)
-      ? activeThreadId
-      : undefined,
-  );
-  function handleSaveMessages(messagesToSave: Array<HumanMessage | AIMessage>,myThreadId:string) {
-    console.log({ myThreadId });
+  const { mutate: createNewThread } = useCreateNewThread();
 
+  function handleSaveMessages(
+    messagesToSave: Array<HumanMessage | AIMessage>,
+    myThreadId: string,
+  ) {
+    
     if (!myThreadId) return;
     saveAgentMessages({
       threadId: myThreadId,
@@ -76,7 +72,7 @@ const AgentSidebarNew: React.FC<{
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text) return;
-    let newThreadId:string | null = threadId;
+    let newThreadId: string | null = threadId;
     setInputValue("");
     setIsThinking(true);
 
@@ -116,19 +112,6 @@ const AgentSidebarNew: React.FC<{
     };
 
     const randThreadId = crypto.randomUUID();
-    if (!activeThreadId) {
-      setActiveThreadId(randThreadId);
-      await createNewThread(
-        { stateId: randThreadId, docId, prompt: text },
-        {
-          onSuccess(data) {
-            setThreadTitle(data.title);
-            setThreadId(data.id);
-            newThreadId = data.id;
-          },
-        },
-      );
-    }
 
     const thread_id = activeThreadId ?? randThreadId;
 
@@ -154,11 +137,29 @@ const AgentSidebarNew: React.FC<{
             );
           },
           onDone: () => {
-            handleSaveMessages(newMessageToSaveRef.current, newThreadId as string);
+            
+            handleSaveMessages(
+              newMessageToSaveRef.current,
+              newThreadId as string,
+            );
           },
         },
         { signal: ab.signal },
       );
+      if (!activeThreadId) {
+        setActiveThreadId(randThreadId);
+        createNewThread(
+          { stateId: randThreadId, docId, prompt: text },
+          {
+            onSuccess(data) {
+              setThreadTitle(data.title);
+              setThreadId(data.id);
+              newThreadId = data.id;
+              handleSaveMessages(newMessageToSaveRef.current, data.id);
+            },
+          },
+        );
+      }
     } catch (error) {
       if (error instanceof Error && error.name !== "AbortError") {
         console.error("Chat stream failed:", error);
@@ -174,12 +175,7 @@ const AgentSidebarNew: React.FC<{
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
 
-  useEffect(() => {
-    if (threadMessages && isThreadMessagesFetched) {
-      setMessages(normalizeThreadMessages(threadMessages));
-      setViewHistory(false);
-    }
-  }, [threadMessages, isThreadMessagesFetched]);
+
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -192,12 +188,21 @@ const AgentSidebarNew: React.FC<{
           <Button
             variant="ghost"
             size="icon-sm"
+            disabled={isSavingMessages}
             onClick={() => {
               setMessages([]);
               setActiveThreadId(crypto.randomUUID());
             }}
           >
-            <HugeiconsIcon icon={PlusSignIcon} size="20" />
+            {isSavingMessages ? (
+              <HugeiconsIcon
+                icon={Loading02Icon}
+                size="20"
+                className="animate-spin text-primary"
+              />
+            ) : (
+              <HugeiconsIcon icon={PlusSignIcon} size="20" />
+            )}
           </Button>
           <Button
             variant="ghost"
@@ -213,23 +218,26 @@ const AgentSidebarNew: React.FC<{
           </Button>
         </div>
       </div>
-      {isThreadMessagesFetching ? (
-        <div className="flex items-center justify-center h-full">
-          <HugeiconsIcon
-            icon={Loading03FreeIcons}
-            size="20"
-            className="animate-spin"
-          />
-        </div>
-      ) : (
-        ""
-      )}
+
       {viewHistory ? (
         <AgentHistoryPanel
           allChats={allThreads}
           activeChatId={activeThreadId as string}
-          onSelectChat={(id) => {
+          onSelectChat={(id, msgs) => {
             setActiveThreadId(id);
+            setThreadId(id)
+            setMessages(
+              () =>
+                msgs.map((m) => ({
+                  type: m.role === "human" ? "human" : "ai",
+                  data: {
+                    ...(m.data as any),
+                    type: m.role === "human" ? "human" : "ai",
+                  },
+                  parts: [],
+                })) as AIMessageResponse,
+            );
+            setViewHistory(false);
           }}
         />
       ) : (
@@ -244,8 +252,11 @@ const AgentSidebarNew: React.FC<{
                 <p>Start a conversation with Agent...</p>
               </div>
             ) : (
-              messages.map((message) => (
-                <MessageBubble key={message.data.id} message={message} />
+              messages.map((message, index) => (
+                <MessageBubble
+                  key={message.data?.id || index}
+                  message={message}
+                />
               ))
             )}
             {isThinking &&
