@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import AgentHistoryPanel from "./agent-sidebar/AgentHistoryPanel";
 import { MessageBubble } from "./agent-sidebar/messageBubble";
-import { normalizeThreadMessages } from "./agent-sidebar/normalizeMessages";
 import type {
   AIMessage,
   AIMessageResponse,

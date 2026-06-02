@@ -240,7 +240,9 @@ export const getAllDocs = async (): Promise<InferSelectModel<typeof docs>[]> => 
   return all_docs;
 };
 export type DocWithThread = InferSelectModel<typeof docs> & {
-  threads: InferSelectModel<typeof thread>[];
+  threads: (InferSelectModel<typeof thread>&{
+    messages: InferSelectModel<typeof messages>[];
+  })[];
 };
 
 export const getDocById = async (docId: string): Promise<DocWithThread | null> => {
