@@ -28,10 +28,14 @@ export function updateLastAiMessage(
         (data.additional_kwargs.reasoning_content || "") +
         (chunk.additional_kwargs?.reasoning_content || ""),
     };
+  
 
     for (const tc of chunk.tool_calls) {
-      if (!data.tool_calls.some((t) => t.id === tc.id)) {
-        data.tool_calls = [...data.tool_calls, tc];
+      if (!data.tool_calls.some((t) => t.id === tc.id)) {        
+        data.tool_calls = [...data.tool_calls, {
+          ...tc,
+          isRunning:  true
+        }];
       }
     }
 
@@ -44,6 +48,14 @@ export function updateLastAiMessage(
         ...data.response_metadata,
         ...chunk.response_metadata,
       };
+    }
+  }else if(chunk.type === "tool"){
+    for (const tc of data.tool_calls){
+      if(tc.name === chunk.name && tc.id === chunk.tool_call_id){
+        console.log(tc.name,'Completed');
+        
+        tc.isRunning = false;
+      }
     }
   }
 

@@ -15,7 +15,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { messages, thread } from "@/db/schema/auth-schema";
 import { readChatStream } from "@/lib/chat-stream";
 import { useCreateNewThread } from "@/lib/queries/createNewThread";
-import { useGetThreadMessages } from "@/lib/queries/getThreadMessages";
 import { useSaveAgentMessages } from "@/lib/queries/saveMessagesQuery";
 import { updateLastAiMessage } from "@/lib/update-last-message";
 import { cn } from "@/lib/utils";
@@ -31,19 +30,19 @@ import type {
 const AgentSidebarNew: React.FC<{
   docId: string;
   userId: string;
+  editorValue:string;
+  onEditorValueChange:(value:string) => void;
   allThreads: (InferSelectModel<typeof thread> & {
     messages: InferSelectModel<typeof messages>[];
   })[];
-}> = ({ docId, userId, allThreads }) => {
-
+}> = ({ docId, userId, editorValue, onEditorValueChange, allThreads }) => {
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<AIMessageResponse>([]);
-  const [threads, setThreads] =
-    useState<InferSelectModel<typeof thread>[]>(allThreads);
+
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
     undefined,
   );
@@ -60,7 +59,6 @@ const AgentSidebarNew: React.FC<{
     messagesToSave: Array<HumanMessage | AIMessage>,
     myThreadId: string,
   ) {
-    
     if (!myThreadId) return;
     saveAgentMessages({
       threadId: myThreadId,
@@ -121,22 +119,32 @@ const AgentSidebarNew: React.FC<{
     const ab = new AbortController();
     abortRef.current = ab;
 
-    const TIMEOUT_MS = 30_000;
+    const TIMEOUT_MS = 120_000;
     const timeoutId = setTimeout(() => ab.abort(), TIMEOUT_MS);
 
     try {
       await readChatStream(
-        { message: text, thread_id, user_id: userId },
+        { message: text, thread_id, user_id: userId, editor_content: editorValue },
         {
           onChunk: (chunk) => {
+            console.log({chunk});
+            
+            if(chunk.type === "AIMessageChunk" && chunk.tool_calls?.length > 0) {
+              for (const tool of chunk.tool_calls) {
+                if(tool.name === 'write_editor' && (tool.args?.content as string).length > 0){
+                  onEditorValueChange(tool.args?.content as string);
+                }
+              }
+            }
             setMessages((prev) => updateLastAiMessage(prev, chunk));
             newMessageToSaveRef.current = updateLastAiMessage(
               newMessageToSaveRef.current,
               chunk,
             );
+
           },
           onDone: () => {
-            
+            setIsThinking(false);
             handleSaveMessages(
               newMessageToSaveRef.current,
               newThreadId as string,
@@ -165,7 +173,7 @@ const AgentSidebarNew: React.FC<{
       }
     } finally {
       clearTimeout(timeoutId);
-      setIsThinking(false);
+
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [inputValue, activeThreadId]);
@@ -173,8 +181,6 @@ const AgentSidebarNew: React.FC<{
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   });
-
-
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -224,7 +230,7 @@ const AgentSidebarNew: React.FC<{
           activeChatId={activeThreadId as string}
           onSelectChat={(id, msgs) => {
             setActiveThreadId(id);
-            setThreadId(id)
+            setThreadId(id);
             setMessages(
               () =>
                 msgs.map((m) => ({

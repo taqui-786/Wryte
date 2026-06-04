@@ -6,6 +6,7 @@ export type ChatStreamBody = {
   message: string;
   thread_id: string;
   user_id: string;
+  editor_content: string;
 };
 
 export type ChatStreamCallbacks = {

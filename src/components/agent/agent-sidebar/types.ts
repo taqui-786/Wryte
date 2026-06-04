@@ -57,6 +57,7 @@ export interface ToolCall {
   args: Record<string, unknown>;
   id: string;
   type: "tool_call";
+  isRunning?:boolean 
 }
 
 export type AiMessageStreaming = AIMessageChunkStream | ToolMessageStream;
