@@ -1,6 +1,7 @@
 import type {
   AIMessageResponse,
   AiMessageStreaming,
+  StreamingPart,
 } from "@/components/agent/agent-sidebar/types";
 
 export function updateLastAiMessage(
@@ -15,57 +16,66 @@ export function updateLastAiMessage(
 
   const data = { ...last.data };
   data.content =
-    (data.content || "") + (chunk.type !== "tool" ? chunk.content : "");
+    (data.content || "") +
+    (chunk.message.type !== "tool" ? chunk.message.content : "");
 
-  if (chunk.type === "AIMessageChunk") {
+  if (chunk.message.type === "AIMessageChunk") {
     data.additional_kwargs = {
       ...data.additional_kwargs,
-      isReasoning:chunk.additional_kwargs?.reasoning ? true:false,
+      isReasoning: chunk.message.additional_kwargs?.reasoning ? true : false,
       reasoning:
         (data.additional_kwargs.reasoning || "") +
-        (chunk.additional_kwargs?.reasoning || ""),
+        (chunk.message.additional_kwargs?.reasoning || ""),
       reasoning_content:
         (data.additional_kwargs.reasoning_content || "") +
-        (chunk.additional_kwargs?.reasoning_content || ""),
+        (chunk.message.additional_kwargs?.reasoning_content || ""),
     };
-  
 
-    for (const tc of chunk.tool_calls) {
-      if (!data.tool_calls.some((t) => t.id === tc.id)) {        
-        data.tool_calls = [...data.tool_calls, {
-          ...tc,
-          isRunning:  true
-        }];
+    for (const tc of chunk.message.tool_calls) {
+      if (!data.tool_calls.some((t) => t.id === tc.id)) {
+        data.tool_calls = [
+          ...data.tool_calls,
+          {
+            ...tc,
+            isRunning: true,
+          },
+        ];
       }
     }
 
-    if (chunk.usage_metadata) {
-      data.usage_metadata = chunk.usage_metadata;
+    if (chunk.message.usage_metadata) {
+      data.usage_metadata = chunk.message.usage_metadata;
     }
 
-    if (chunk.response_metadata?.finish_reason) {
+    if (chunk.message.response_metadata?.finish_reason) {
       data.response_metadata = {
         ...data.response_metadata,
-        ...chunk.response_metadata,
+        ...chunk.message.response_metadata,
       };
     }
-  }else if(chunk.type === "tool"){
-    for (const tc of data.tool_calls){
-      if(tc.name === chunk.name && tc.id === chunk.tool_call_id){
-        console.log(tc.name,'Completed');
-        
+  } else if (chunk.message.type === "tool") {
+    for (const tc of data.tool_calls) {
+      if (
+        tc.name === chunk.message.name &&
+        tc.id === chunk.message.tool_call_id
+      ) {
+        console.log(tc.name, "Completed");
+
         tc.isRunning = false;
       }
     }
   }
 
-  const parts: { type: string; text: string; state?: string }[] = [];
-  const reasoning = data.additional_kwargs?.reasoning;
+  const parts: StreamingPart[] = [];
+  const reasoning = data.additional_kwargs?.reasoning_content;
   if (reasoning?.trim()) {
-    parts.push({ type: "reasoning", text: reasoning, state: "streaming" });
+    parts.push({ type: "reasoning", content: reasoning });
   }
   if (data.content?.trim()) {
-    parts.push({ type: "text", text: data.content });
+    parts.push({ type: "content", content: data.content });
+  }
+  for (const tc of data.tool_calls) {
+    parts.push({ type: "tool_call", toolCall: tc });
   }
 
   updated[updated.length - 1] = { ...last, data, parts };

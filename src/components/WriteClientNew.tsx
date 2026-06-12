@@ -10,14 +10,13 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Edit03Icon } from "@hugeicons/core-free-icons";
-import MyEditor from "./my-editor/MyEditor";
+import MyEditor, { AIChange } from "./my-editor/MyEditor";
 import AgentSidebarNew from "./agent/AgentSidebarNew";
 import { DocWithThread } from "@/lib/serverAction";
 
-type Props = {doc: DocWithThread};
+type Props = { doc: DocWithThread };
 
-const WriteClientNew: React.FC<Props> = ({doc}) => {
-  
+const WriteClientNew: React.FC<Props> = ({ doc }) => {
   const [isEditingHeading, setIsEditingHeading] = useState(false);
   const [heading, setHeading] = useState(doc.title || "Untitled");
   const headingInputRef = useRef<HTMLInputElement>(null);
@@ -25,9 +24,15 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
   const editorRef = useRef<any>(null);
   const [value, setValue] = useState(doc.content || "");
   const handleChange = (content: string) => {
-    
-    setValue(content);
+    setValue((prev) => prev + content);
   };
+  const handleApplyChanges = (changes: AIChange[]) => {
+  editorRef.current?.applyAIChanges(changes);
+  // Also sync the value state for save/send scenarios
+  const newMd = editorRef.current?.getMarkdownAfterAIChanges(changes);
+  if (newMd) setValue(newMd);
+};
+
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
       <ResizablePanel defaultSize={70} className="max-h-[calc(100vh-4rem)]">
@@ -72,7 +77,7 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
               )}
               <MyEditor
                 ref={editorRef}
-                onChange={handleChange}
+                onChange={(val) => setValue(val)}
                 value={value}
                 isLocked={isAIApplying}
               />
@@ -81,12 +86,15 @@ const WriteClientNew: React.FC<Props> = ({doc}) => {
         </ScrollArea>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel
-        defaultSize={30}
-        className="max-h-[calc(100vh-4rem)]"
-      >
-
-        <AgentSidebarNew docId={doc.id} userId={doc.userId} editorValue={value} onEditorValueChange={handleChange} allThreads={doc.threads || []} />
+      <ResizablePanel defaultSize={30} className="max-h-[calc(100vh-4rem)]">
+        <AgentSidebarNew
+          docId={doc.id}
+          userId={doc.userId}
+          editorValue={value}
+          onEditorValueChange={handleChange}
+          onApplyAIChanges={handleApplyChanges}
+          allThreads={doc.threads || []}
+        />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

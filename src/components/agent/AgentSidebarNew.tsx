@@ -21,21 +21,24 @@ import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import AgentHistoryPanel from "./agent-sidebar/AgentHistoryPanel";
 import { MessageBubble } from "./agent-sidebar/messageBubble";
-import type {
-  AIMessage,
-  AIMessageResponse,
-  HumanMessage,
+import {
+  NodeType,
+  type AIMessage,
+  type AIMessageResponse,
+  type HumanMessage,
 } from "./agent-sidebar/types";
+import { AIChange } from "../my-editor/MyEditor";
 
 const AgentSidebarNew: React.FC<{
   docId: string;
   userId: string;
-  editorValue:string;
-  onEditorValueChange:(value:string) => void;
+  editorValue: string;
+  onEditorValueChange: (value: string) => void;
+  onApplyAIChanges?: (changes: AIChange[]) => void;
   allThreads: (InferSelectModel<typeof thread> & {
     messages: InferSelectModel<typeof messages>[];
   })[];
-}> = ({ docId, userId, editorValue, onEditorValueChange, allThreads }) => {
+}> = ({ docId, userId, editorValue, onEditorValueChange, allThreads,onApplyAIChanges }) => {
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,6 +53,7 @@ const AgentSidebarNew: React.FC<{
   const [threadId, setThreadId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const newMessageToSaveRef = useRef<AIMessageResponse>([]);
+  const [node,setNode] = useState<NodeType[]>(["chat_node"]);
   // My Queries -----------------
   const { mutate: saveAgentMessages, isPending: isSavingMessages } =
     useSaveAgentMessages();
@@ -119,29 +123,44 @@ const AgentSidebarNew: React.FC<{
     const ab = new AbortController();
     abortRef.current = ab;
 
-    const TIMEOUT_MS = 120_000;
+    const TIMEOUT_MS = 500000;
     const timeoutId = setTimeout(() => ab.abort(), TIMEOUT_MS);
 
     try {
       await readChatStream(
-        { message: text, thread_id, user_id: userId, editor_content: editorValue },
+        {
+          message: text,
+          thread_id,
+          user_id: userId,
+          editor_content: editorValue,
+        },
         {
           onChunk: (chunk) => {
-            console.log({chunk});
-            
-            if(chunk.type === "AIMessageChunk" && chunk.tool_calls?.length > 0) {
-              for (const tool of chunk.tool_calls) {
-                if(tool.name === 'write_editor' && (tool.args?.content as string).length > 0){
-                  onEditorValueChange(tool.args?.content as string);
+            // Handle targeted editor changes
+            setNode((prev) => [...prev, chunk.node]);
+            if (
+              chunk.node === "tools" &&
+              chunk.message.type === "AIMessageChunk"
+            ) {
+              for (const tool of chunk.message.tool_calls ?? []) {
+                if (
+                  tool.name === "update_editor" &&
+                  tool.args?.changes &&
+                  Array.isArray(tool.args.changes) &&
+                  tool.args.changes.length > 0
+                ) {
+                  onApplyAIChanges?.(tool.args.changes as AIChange[]);
                 }
               }
             }
-            setMessages((prev) => updateLastAiMessage(prev, chunk));
-            newMessageToSaveRef.current = updateLastAiMessage(
-              newMessageToSaveRef.current,
-              chunk,
-            );
 
+            // Handle full content from humanize (for initial writes, not edits)
+            if (chunk.node === "humanize" && chunk.message.content) {
+              onEditorValueChange(chunk.message.content);
+            }
+
+            // Rest: update message UI
+            setMessages((prev) => updateLastAiMessage(prev, chunk));
           },
           onDone: () => {
             setIsThinking(false);
@@ -228,7 +247,8 @@ const AgentSidebarNew: React.FC<{
         <AgentHistoryPanel
           allChats={allThreads}
           activeChatId={activeThreadId as string}
-          onSelectChat={(id, msgs) => {
+          onSelectChat={(id, title, msgs) => {
+            setThreadTitle(title);
             setActiveThreadId(id);
             setThreadId(id);
             setMessages(
@@ -259,6 +279,7 @@ const AgentSidebarNew: React.FC<{
             ) : (
               messages.map((message, index) => (
                 <MessageBubble
+                  node={node}
                   key={message.data?.id || index}
                   message={message}
                 />

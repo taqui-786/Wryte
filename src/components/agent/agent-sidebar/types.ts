@@ -1,5 +1,11 @@
 export type AIMessageResponse = Array<HumanMessage | AIMessage>;
 
+type PreNode = "classify" | "recall" | "remember" | "task_planner" | "step_executor" | "step_complete"
+type ChatNode = "chat_node" | "tools"
+type ResearchNode = "research_topics" | "research" | "finalize_research" | "research_answer"
+type WriterNode = "planning_node" | "write_content" | "humanize"
+
+export type NodeType = PreNode | ChatNode | ResearchNode | WriterNode
 export interface BaseMessage {
   type: "human" | "ai";
   data: {
@@ -29,7 +35,7 @@ export interface AIMessage extends BaseMessage {
 
     additional_kwargs: {
       reasoning_content?: string;
-      isReasoning?:Boolean,
+      isReasoning?: Boolean;
       reasoning?: string;
       _reasoning_api_fields?: string[];
       [key: string]: unknown;
@@ -57,10 +63,30 @@ export interface ToolCall {
   args: Record<string, unknown>;
   id: string;
   type: "tool_call";
-  isRunning?:boolean 
+  isRunning?: boolean;
 }
 
-export type AiMessageStreaming = AIMessageChunkStream | ToolMessageStream;
+export type StreamingPart = ReasoningPart | ContentPart | ToolCallPart;
+
+export interface ReasoningPart {
+  type: "reasoning";
+  content: string;
+}
+
+export interface ContentPart {
+  type: "content";
+  content: string;
+}
+
+export interface ToolCallPart {
+  type: "tool_call";
+  toolCall: ToolCall;
+}
+
+export type AiMessageStreaming = {
+  node: NodeType;
+  message: AIMessageChunkStream | ToolMessageStream;
+};
 
 export interface AIMessageChunkStream {
   type: "AIMessageChunk";
