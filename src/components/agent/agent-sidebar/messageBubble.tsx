@@ -61,7 +61,28 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
 //     </>
 //   );
 // }
+function removeJsonBlocks(text: string) {
+  let result = "";
+  let depth = 0;
 
+  for (const char of text) {
+    if (char === "{" || char === "[") {
+      depth++;
+      continue;
+    }
+
+    if (char === "}" || char === "]") {
+      depth--;
+      continue;
+    }
+
+    if (depth === 0) {
+      result += char;
+    }
+  }
+
+  return result.trim();
+}
 export function MessageBubble({
   message,
   node,
@@ -135,101 +156,76 @@ export function MessageBubble({
             </Reasoning>
           );
         case "content":
-          const activeNode = node[node.length - 1];
-          if (node[node.length - 2] === "task_planner" && node[node.length - 1] === "step_executor") {
-            const my_plan = JSON.parse(part.content) as PlanStep[];
-            const topic = my_plan[0]?.params?.topic ?? "Plan";
-            return (
-              <div
-                key={i}
-                className="rounded-lg border border-border bg-muted/50 p-3 my-2 space-y-2"
-              >
-                <div className="flex items-center gap-2 pb-1.5 border-b border-border">
-                  <div className="size-2 rounded-full bg-primary" />
-                  <span className="font-semibold text-sm truncate">
-                    {topic}
-                  </span>
-                </div>
-                {my_plan.map((ps) => (
-                  <div
-                    key={ps.step}
-                    className="flex items-start gap-2.5 text-sm"
-                  >
-                    <div className="flex items-center justify-center size-6 shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold mt-0.5">
-                      {ps.step}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium capitalize">
-                        {ps.action.replace(/_/g, " ")}
-                      </span>
-                      <p className="text-muted-foreground text-xs leading-relaxed line-clamp-2">
-                        {ps.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          }
-          if (activeNode === "step_complete") {
-            const { plan, current_step_index } = JSON.parse(
-              part.content,
-            ) as StepCompleted;
-            const topic = plan[0]?.params?.topic ?? "Plan";
-            return (
-              <div
-                key={i}
-                className="rounded-lg border border-border bg-muted/50 p-3 my-2 space-y-2"
-              >
-                <div className="flex items-center gap-2 pb-1.5 border-b border-border">
-                  <div className="size-2 rounded-full bg-green-500" />
-                  <span className="font-semibold text-sm truncate">
-                    {topic}
-                  </span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {current_step_index}/{plan.length}
-                  </span>
-                </div>
-                {plan.map((ps) => {
-                  const isDone = ps.step <= current_step_index;
-                  return (
-                    <div
-                      key={ps.step}
-                      className={`flex items-start gap-2.5 text-sm ${isDone ? "opacity-50" : ""}`}
-                    >
-                      <div
-                        className={`flex items-center justify-center size-6 shrink-0 rounded-full text-xs font-bold mt-0.5 ${isDone ? "bg-green-500/20 text-green-600" : "bg-primary/10 text-primary"}`}
-                      >
-                        {isDone ? "✓" : ps.step}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span
-                          className={`font-medium capitalize ${isDone ? "line-through" : ""}`}
-                        >
-                          {ps.action.replace(/_/g, " ")}
-                        </span>
-                        <p className="text-muted-foreground text-xs leading-relaxed line-clamp-2">
-                          {ps.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          }
-          if (activeNode === "chat_node") {
-            return (
-              <div key={i} className="whitespace-pre-wrap">
-                <StreamingMessage
-                  markdown
-                  animate={message.type === "ai"}
-                  text={part.content}
-                />
-              </div>
-            );
-          }
-          return ""
+          // const activeNode = node[node.length - 1];
+
+          // if (activeNode === "step_complete") {
+          //   const { plan, current_step_index } = JSON.parse(
+          //     part.content,
+          //   ) as StepCompleted;
+          //   const topic = plan[0]?.params?.topic ?? "Plan";
+          //   return (
+          //     <div
+          //       key={i}
+          //       className="rounded-lg border border-border bg-muted/50 p-3 my-2 space-y-2"
+          //     >
+          //       <div className="flex items-center gap-2 pb-1.5 border-b border-border">
+          //         <div className="size-2 rounded-full bg-green-500" />
+          //         <span className="font-semibold text-sm truncate">
+          //           {topic}
+          //         </span>
+          //         <span className="ml-auto text-xs text-muted-foreground">
+          //           {current_step_index}/{plan.length}
+          //         </span>
+          //       </div>
+          //       {plan.map((ps) => {
+          //         const isDone = ps.step <= current_step_index;
+          //         return (
+          //           <div
+          //             key={ps.step}
+          //             className={`flex items-start gap-2.5 text-sm ${isDone ? "opacity-50" : ""}`}
+          //           >
+          //             <div
+          //               className={`flex items-center justify-center size-6 shrink-0 rounded-full text-xs font-bold mt-0.5 ${isDone ? "bg-green-500/20 text-green-600" : "bg-primary/10 text-primary"}`}
+          //             >
+          //               {isDone ? "✓" : ps.step}
+          //             </div>
+          //             <div className="min-w-0 flex-1">
+          //               <span
+          //                 className={`font-medium capitalize ${isDone ? "line-through" : ""}`}
+          //               >
+          //                 {ps.action.replace(/_/g, " ")}
+          //               </span>
+          //               <p className="text-muted-foreground text-xs leading-relaxed line-clamp-2">
+          //                 {ps.description}
+          //               </p>
+          //             </div>
+          //           </div>
+          //         );
+          //       })}
+          //     </div>
+          //   );
+          // }
+          // if (activeNode === "chat_node" || activeNode === "planner") {
+          //   return (
+          //     <div key={i} className="whitespace-pre-wrap">
+          //       <StreamingMessage
+          //         markdown
+          //         animate={message.type === "ai"}
+          //         text={part.content}
+          //       />
+          //     </div>
+          //   );
+          // }
+          const clean = removeJsonBlocks(part.content);
+          return (
+            <div key={i} className="whitespace-pre-wrap">
+              <StreamingMessage
+                markdown
+                animate={message.type === "ai"}
+                text={clean}
+              />
+            </div>
+          );
         case "tool_call":
           return <ToolCallCard key={i} toolCall={part.toolCall} />;
       }

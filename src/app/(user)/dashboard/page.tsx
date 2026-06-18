@@ -4,7 +4,7 @@ type Props = {};
 const page:React.FC<Props> = ({}) => {
 return(
 <div className='flex flex-1 h-full flex-col items-center justify-center ' > 
-    <h1>Dashboard</h1>
+    <h1>App is under Development</h1>
 </div>
 )
 };

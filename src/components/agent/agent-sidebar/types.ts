@@ -1,9 +1,9 @@
 export type AIMessageResponse = Array<HumanMessage | AIMessage>;
 
-type PreNode = "classify" | "recall" | "remember" | "task_planner" | "step_executor" | "step_complete"
+type PreNode = "classify" | "recall" | "remember" | "planner" | "step_dispatecher" | "step_complete"
 type ChatNode = "chat_node" | "tools"
 type ResearchNode = "research_topics" | "research" | "finalize_research" | "research_answer"
-type WriterNode = "planning_node" | "write_content" | "humanize"
+type WriterNode = "writer_planning_node" | "write_content" | "humanize"
 
 export type NodeType = PreNode | ChatNode | ResearchNode | WriterNode
 export interface BaseMessage {
