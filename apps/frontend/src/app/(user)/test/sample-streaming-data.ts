@@ -3,6 +3,8 @@ import type { AiMessageStreaming } from '@/components/agent/agent-sidebar/types'
 export const sampleAiStreamingResponse: AiMessageStreaming[] = [
   // ── EMPTY START ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {},
@@ -15,17 +17,20 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── REASONING CHUNKS ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: 'The',
-      reasoning: 'The',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: 'The',
+    reasoning: 'The',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -35,15 +40,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: ' user is asking about "nividia latest creation',
-      reasoning: ' user is asking about "nividia latest creation',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: ' user is asking about "nividia latest creation',
+    reasoning: ' user is asking about "nividia latest creation',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -53,15 +61,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: '" - which is likely a misspelling of "',
-      reasoning: '" - which is likely a misspelling of "',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: '" - which is likely a misspelling of "',
+    reasoning: '" - which is likely a misspelling of "',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -71,15 +82,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: 'NVIDIA". They want to know about NVIDIA\'s latest',
-      reasoning: 'NVIDIA". They want to know about NVIDIA\'s latest',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: 'NVIDIA". They want to know about NVIDIA\'s latest',
+    reasoning: 'NVIDIA". They want to know about NVIDIA\'s latest',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -89,15 +103,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: ' product or creation. This is a question that requires current',
-      reasoning: ' product or creation. This is a question that requires current',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: ' product or creation. This is a question that requires current',
+    reasoning: ' product or creation. This is a question that requires current',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -107,15 +124,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: ' information, so I should use the search_agent',
-      reasoning: ' information, so I should use the search_agent',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: ' information, so I should use the search_agent',
+    reasoning: ' information, so I should use the search_agent',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -125,15 +145,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content: ' tool to get up-to-date information about NVIDIA\'s',
-      reasoning: ' tool to get up-to-date information about NVIDIA\'s',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content: ' tool to get up-to-date information about NVIDIA\'s',
+    reasoning: ' tool to get up-to-date information about NVIDIA\'s',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -143,17 +166,20 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {
-      reasoning_content:
-        ' latest announcements or products.\n\nLet me search for information',
-      reasoning:
-        ' latest announcements or products.\n\nLet me search for information',
-      _reasoning_api_fields: ['reasoning_content', 'reasoning'],
-    },
+    reasoning_content:
+    ' latest announcements or products.\n\nLet me search for information',
+    reasoning:
+    ' latest announcements or products.\n\nLet me search for information',
+    _reasoning_api_fields: ['reasoning_content', 'reasoning'],
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
@@ -163,44 +189,50 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── RESOLVED TOOL CALL (same chunk has tool_calls + tool_call_chunks) ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {},
     response_metadata: {
-      finish_reason: 'tool_calls',
-      model_name: 'stepfun-ai/step-3.5-flash',
-    },
+    finish_reason: 'tool_calls',
+    model_name: 'stepfun-ai/step-3.5-flash',
+      },
     name: null,
     id: 'lc_run--019eb06e-c93b-7f72-9df9-6e3fb59aed4f',
     tool_calls: [
-      {
-        name: 'search_agent',
-        args: { query: 'NVIDIA latest product creation 2024' },
-        id: 'call_bcf1128768104bee9559ad61',
-        type: 'tool_call',
-      },
+    {
+    name: 'search_agent',
+    args: { query: 'NVIDIA latest product creation 2024' },
+    id: 'call_bcf1128768104bee9559ad61',
+    type: 'tool_call',
+        },
     ],
     invalid_tool_calls: [],
     usage_metadata: null,
     tool_call_chunks: [
-      {
-        name: 'search_agent',
-        args: '{"query": "NVIDIA latest product creation 2024"}',
-        id: 'call_bcf1128768104bee9559ad61',
-        index: 0,
-        type: 'tool_call_chunk',
-      },
+    {
+    name: 'search_agent',
+    args: '{"query": "NVIDIA latest product creation 2024"}',
+    id: 'call_bcf1128768104bee9559ad61',
+    index: 0,
+    type: 'tool_call_chunk',
+        },
     ],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── USAGE METADATA CHUNK ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {},
@@ -213,10 +245,13 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── LAST POSITION CHUNK ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {},
@@ -229,26 +264,29 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: 'last',
     role: 'assistant',
+    },
   },
 
   // ── TOOL MESSAGE (search_agent result) ──
   {
+    node: 'chat_node',
+    message: {
     type: 'tool',
     content: JSON.stringify([
-      {
-        url: 'https://www.nvidia.com/en-us/',
-        title: 'World Leader in AI Computing',
-        description:
-          'NVIDIA RTX Spark superchip announced at GTC Taipei. Features Blackwell RTX GPU with 6,144 CUDA cores, 1 petaflop AI performance, up to 128GB unified memory.',
-        text: 'NVIDIA RTX Spark is a new superchip that reinvents Windows PCs for the era of personal AI agents. Available this fall from ASUS, Dell, HP, Lenovo, Microsoft Surface and MSI.',
-      },
-      {
-        url: 'https://nvidianews.nvidia.com/news/nvidia-microsoft-windows-pcs-agents-rtx-spark',
-        title: 'NVIDIA and Microsoft Reinvent Windows PCs for the Age of Personal AI',
-        description:
-          'NVIDIA RTX Spark powers the first Windows PCs purpose-built for personal agents.',
-        text: 'RTX Spark features NVIDIA Blackwell RTX GPU, NVLink-C2C interconnect, and 20-core NVIDIA Grace CPU. Collaboration with Microsoft for secure on-device AI agents.',
-      },
+    {
+    url: 'https://www.nvidia.com/en-us/',
+    title: 'World Leader in AI Computing',
+    description:
+    'NVIDIA RTX Spark superchip announced at GTC Taipei. Features Blackwell RTX GPU with 6,144 CUDA cores, 1 petaflop AI performance, up to 128GB unified memory.',
+    text: 'NVIDIA RTX Spark is a new superchip that reinvents Windows PCs for the era of personal AI agents. Available this fall from ASUS, Dell, HP, Lenovo, Microsoft Surface and MSI.',
+        },
+    {
+    url: 'https://nvidianews.nvidia.com/news/nvidia-microsoft-windows-pcs-agents-rtx-spark',
+    title: 'NVIDIA and Microsoft Reinvent Windows PCs for the Age of Personal AI',
+    description:
+    'NVIDIA RTX Spark powers the first Windows PCs purpose-built for personal agents.',
+    text: 'RTX Spark features NVIDIA Blackwell RTX GPU, NVLink-C2C interconnect, and 20-core NVIDIA Grace CPU. Collaboration with Microsoft for secure on-device AI agents.',
+        },
     ]),
     additional_kwargs: {},
     response_metadata: {},
@@ -257,10 +295,13 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_id: 'call_bcf1128768104bee9559ad61',
     artifact: null,
     status: 'success',
+    },
   },
 
   // ── SECOND RUN: first empty chunk ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '',
     additional_kwargs: {},
@@ -273,10 +314,13 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── CONTENT CHUNKS (after tool result) ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' on the search results, NVIDIA\'s latest major creation appears',
     additional_kwargs: {},
@@ -289,8 +333,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' to be the **NVIDIA RTX Spark™**',
     additional_kwargs: {},
@@ -303,8 +350,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' superchip, which was announced recently (appears',
     additional_kwargs: {},
@@ -317,8 +367,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' to be at GTC Taipei). This is a',
     additional_kwargs: {},
@@ -331,8 +384,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' groundbreaking new chip designed specifically for Windows PCs in the era',
     additional_kwargs: {},
@@ -345,8 +401,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' of personal AI agents.\n\nLet me provide the user with',
     additional_kwargs: {},
@@ -359,8 +418,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' a concise summary of what RTX Spark is and',
     additional_kwargs: {},
@@ -373,15 +435,18 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── CHUNK WITH BOTH REASONING + CONTENT (transition/</think>) ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' why it\'s significant.\n</think>\nNVIDIA\'s latest',
     additional_kwargs: {
-      reasoning_content: 'why it\'s significant.',
-    },
+    reasoning_content: 'why it\'s significant.',
+      },
     response_metadata: {},
     name: null,
     id: 'lc_run--019eb06e-dd5e-78c2-b6b6-255643f119f4',
@@ -391,10 +456,13 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 
   // ── FINAL CONTENT CHUNKS ──
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' major creation is **NVIDIA RTX Spark™',
     additional_kwargs: {},
@@ -407,8 +475,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: '**, a revolutionary superchip announced at GTC Taipei',
     additional_kwargs: {},
@@ -421,8 +492,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' that reinvents Windows PCs for the era of personal',
     additional_kwargs: {},
@@ -435,8 +509,11 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
   {
+    node: 'chat_node',
+    message: {
     type: 'AIMessageChunk',
     content: ' AI agents.\n\n**Key Features:**\n\n- **1',
     additional_kwargs: {},
@@ -449,5 +526,6 @@ export const sampleAiStreamingResponse: AiMessageStreaming[] = [
     tool_call_chunks: [],
     chunk_position: null,
     role: 'assistant',
+    },
   },
 ]

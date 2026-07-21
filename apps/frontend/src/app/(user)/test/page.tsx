@@ -1,20 +1,18 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { AiMessageStreaming, AIMessage, StreamingPart } from '@/components/agent/agent-sidebar/types'
+import type { AiMessageStreaming, AIMessage, StreamingPart, AIMessageChunkStream } from '@/components/agent/agent-sidebar/types'
 import { MessageBubble } from '@/components/agent/agent-sidebar/messageBubble'
 import { sampleAiStreamingResponse } from './sample-streaming-data'
 
 function buildAIMessage(chunks: AiMessageStreaming[]): AIMessage | null {
   if (chunks.length === 0) return null
 
-  const aiChunks = chunks.filter(
-    (c): c is Extract<AiMessageStreaming, { type: 'AIMessageChunk' }> =>
-      c.type === 'AIMessageChunk',
-  )
+  const aiChunks = chunks
+    .map((c) => c.message)
+    .filter((m): m is AIMessageChunkStream => m.type === 'AIMessageChunk')
   const fullContent = aiChunks.map((c) => c.content).join('')
 
-  // Build ordered parts preserving chunk arrival order
   const rawParts: StreamingPart[] = []
   for (const chunk of aiChunks) {
     if (chunk.additional_kwargs?.reasoning_content) {
@@ -33,7 +31,6 @@ function buildAIMessage(chunks: AiMessageStreaming[]): AIMessage | null {
     }
   }
 
-  // Merge adjacent same-type parts (except tool_call)
   const mergedParts: StreamingPart[] = []
   for (const p of rawParts) {
     const last = mergedParts[mergedParts.length - 1]
@@ -207,7 +204,7 @@ export default function TestPage() {
           MessageBubble output
         </h2>
         {accumulatedMessage ? (
-          <MessageBubble message={accumulatedMessage} />
+          <MessageBubble message={accumulatedMessage} node={[]} />
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
             Press Play to start streaming chunks into MessageBubble
@@ -228,12 +225,13 @@ export default function TestPage() {
       {/* Chunk navigation */}
       <div className="flex flex-wrap gap-1.5">
         {sampleAiStreamingResponse.map((chunk, i) => {
-          const isChunkType = chunk.type === 'AIMessageChunk' ? 'AI' : 'Tool'
+          const msg = chunk.message
+          const isAIMessage = msg.type === 'AIMessageChunk'
           const hasReasoning =
-            chunk.type === 'AIMessageChunk' &&
-            !!chunk.additional_kwargs?.reasoning_content
+            isAIMessage &&
+            !!(msg as AIMessageChunkStream).additional_kwargs?.reasoning_content
           const isToolCall =
-            chunk.type === 'AIMessageChunk' && chunk.tool_call_chunks?.length > 0
+            isAIMessage && (msg as AIMessageChunkStream).tool_call_chunks?.length > 0
           return (
             <button
               key={i}
@@ -244,15 +242,15 @@ export default function TestPage() {
                     ? 'bg-orange-200 text-orange-800'
                     : isToolCall
                       ? 'bg-blue-200 text-blue-800'
-                      : chunk.type === 'tool'
+                      : msg.type === 'tool'
                         ? 'bg-green-200 text-green-800'
                         : 'bg-muted text-muted-foreground'
                   : 'bg-muted/50 text-muted-foreground/50'
               }`}
               title={JSON.stringify(
-                chunk.type === 'AIMessageChunk'
-                  ? chunk.content || chunk.additional_kwargs?.reasoning_content
-                  : chunk.name,
+                isAIMessage
+                  ? (msg as AIMessageChunkStream).content || (msg as AIMessageChunkStream).additional_kwargs?.reasoning_content
+                  : msg.name,
               )}
             >
               {i + 1}
