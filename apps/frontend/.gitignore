@@ -33,20 +33,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Python
-__pycache__/
-*.py[oc]
-dist/
-wheels/
-*.egg-info
-.pytest_cache/
-
-# Virtual environments
-.venv
-.venv/
-
-# IDE
-.windsurf
-.agents
-.devin
