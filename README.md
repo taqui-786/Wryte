@@ -30,29 +30,35 @@ Wryte/
 - **Python** >= 3.12
 - **uv** (Python package manager — `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 
-## Local Setup
+## Git
 
-### 1. Clone & Install Dependencies
+This is a **single git repo** covering both frontend and backend. The `origin` remote points to `https://github.com/taqui-786/Wryte`. Everything in `apps/frontend/` and `apps/backend/` is tracked together — one push deploys both.
 
 ```bash
 git clone https://github.com/taqui-786/Wryte.git
 cd Wryte
 ```
 
-#### Frontend
+## Local Setup
+
+### 1. Install Dependencies
+
+Frontend and backend use different package managers (pnpm vs uv), so they install separately. From the repo root:
 
 ```bash
-cd apps/frontend
-pnpm install
-cp .env.example .env   # (if available) or create .env from the template below
+# Install both (from root)
+pnpm setup
+
+# Or install individually
+pnpm install:frontend
+pnpm install:backend
 ```
 
-#### Backend
+Then create `.env` files:
 
 ```bash
-cd apps/backend
-uv sync
-cp .env.example .env   # or create .env manually
+cp apps/frontend/.env.example apps/frontend/.env   # if available, or create manually
+# Backend .env must be created manually (not committed)
 ```
 
 ### 2. Environment Variables

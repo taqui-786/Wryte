@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "install:frontend": "cd apps/frontend && pnpm install",
+    "install:backend": "cd apps/backend && uv sync",
+    "setup": "pnpm install:frontend && pnpm install:backend",
     "dev:frontend": "pnpm --filter wryte dev",
     "build:frontend": "pnpm --filter wryte build",
-    "dev:backend": "cd apps/backend && uvicorn app.app:app --reload",
+    "dev:backend": "cd apps/backend && uv run uvicorn app.app:app --reload",
     "lint": "pnpm --filter wryte lint",
     "format": "pnpm --filter wryte format"
   },
