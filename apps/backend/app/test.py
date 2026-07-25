@@ -1,17 +1,14 @@
 import json
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 import os
 from dotenv import load_dotenv
-from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
-from langchain_core.messages import HumanMessage
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
 from typing import TypedDict, Annotated
 from pydantic import BaseModel, Field
-from langchain_openrouter import ChatOpenRouter
+# from langchain_openrouter import ChatOpenRouter
+from langchain_openai import ChatOpenAI
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
-
 # ── LLM ──────────────────────────────────────────────────────────────────────
 llm = ChatNVIDIA(
     model="qwen/qwen3.5-397b-a17b",
@@ -22,6 +19,12 @@ llm = ChatNVIDIA(
     # model_kwargs={"enable_thinking": False},
 )
 
+testing = ChatOpenAI(
+    model="deepseek-v4-flash-free",
+    base_url="https://opencode.ai/zen/v1",
+    api_key="sk-NcrPXERPgaabwNSF0LJ4Lkt73sjjf2It4eESXNpjvTxstHT6C0ra8JTWM1OTGi3N",
+    reasoning_effort="low"
+)
 
 # ── Graph ─────────────────────────────────────────────────────────────────────
 class State(TypedDict):
@@ -138,4 +141,12 @@ Rules:
     print(response, len(response.urls))
 
 
-testingStuff()
+def test_opencode_model():
+    """Quick test for the opencode/deepseek-v4-flash-free model"""
+    print("--- Testing opencode/deepseek-v4-flash-free ---")
+    response = testing.invoke("Hello! Can you tell me a short joke?")
+    print(f"Response: {response.content}")
+    print("--- Test complete ---")
+
+
+# test_opencode_model()

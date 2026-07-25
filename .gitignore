@@ -50,3 +50,5 @@ wheels/
 .windsurf
 .agents
 .devin
+.claude
+AGENTS.md

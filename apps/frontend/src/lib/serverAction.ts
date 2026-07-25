@@ -82,17 +82,26 @@ export const createUserDocs = async (_payload: {
   };
 };
 
-export const updateUserDocs = async (_payload: {
+export const updateUserDocs = async (payload: {
   docId: string;
   title?: string;
   content?: string;
-}): Promise<StubDoc> => {
-  return {
-    id: _payload.docId,
-    title: _payload.title ?? "",
-    content: _payload.content ?? "",
-    updatedAt: new Date(),
-  };
+}): Promise<InferSelectModel<typeof docs>> => {
+  const session = await getServerUserSession();
+  if (!session?.user.id) throw new Error("Unauthorized");
+
+  const updates: Partial<typeof docs.$inferInsert> = {};
+  if (payload.title !== undefined) updates.title = payload.title;
+  if (payload.content !== undefined) updates.content = payload.content;
+
+  const updated = await db
+    .update(docs)
+    .set(updates)
+    .where(and(eq(docs.id, payload.docId), eq(docs.userId, session.user.id)))
+    .returning();
+
+  if (!updated.length) throw new Error("Doc not found");
+  return updated[0];
 };
 
 export const deleteUserDocs = async (
@@ -117,9 +126,7 @@ export const getAllAgentChats = async (
   return [];
 };
 
-export const getAgentChatMessages = async (
-  _chatId: string,
-): Promise<null> => {
+export const getAgentChatMessages = async (_chatId: string): Promise<null> => {
   return null;
 };
 
@@ -140,28 +147,27 @@ export const saveAgentMessages = async (
 ): Promise<void> => {
   try {
     console.log(msgs);
-    
-  const work = await db.insert(messages).values(
-  msgs.map((msg, index) => ({
-    threadId: thread_id,
-    role: msg.type,          
-    index,
-    data: msg.data,          
-  }))
-);
-if (work) {
-  console.log("Agent messages saved successfully");
-}
+
+    const work = await db.insert(messages).values(
+      msgs.map((msg, index) => ({
+        threadId: thread_id,
+        role: msg.type,
+        index,
+        data: msg.data,
+      })),
+    );
+    if (work) {
+      console.log("Agent messages saved successfully");
+    }
   } catch (error) {
     console.error("Error saving agent messages:", error);
     throw new Error("Error saving agent messages");
   }
-}
+};
 
 export const deleteAgentChat = async (_chatId: string): Promise<void> => {
   // no-op
 };
-
 
 // ---------------------------------------------------------------------------
 // Agent chat proxy — calls FastAPI SSE backend
@@ -174,10 +180,10 @@ export async function* chatWithAgent(
   thread_id: string,
 ): AsyncGenerator<Record<string, unknown>, void, undefined> {
   const user = await getServerUserSession();
-  if(!user?.user.id) {
+  if (!user?.user.id) {
     throw new Error("User not found");
   }
-  
+
   const res = await fetch(`${BACKEND_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -187,21 +193,21 @@ export async function* chatWithAgent(
   if (!res.ok || !res.body) {
     throw new Error(`Agent backend returned ${res.status}`);
   }
-  
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   console.log(res);
-  
+
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    
+
     buffer += decoder.decode(value, { stream: true });
-    
+
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
-    
+
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed.startsWith("data: ")) continue;
@@ -218,43 +224,53 @@ export async function* chatWithAgent(
   }
 }
 
-export const createNewDoc = async (): Promise<InferSelectModel<typeof docs>> => {
+export const createNewDoc = async (): Promise<
+  InferSelectModel<typeof docs>
+> => {
   const user_id = await getServerUserSession();
-  if(!user_id?.user.id) {
+  if (!user_id?.user.id) {
     throw new Error("User not found");
   }
-  const doc = await db.insert(docs).values({
-    title: `Untitled Doc ${crypto.randomUUID().slice(0, 5)}`,
-    updatedAt: new Date(),
-    userId: user_id.user.id,
-  }).returning();
+  const doc = await db
+    .insert(docs)
+    .values({
+      title: `Untitled Doc ${crypto.randomUUID().slice(0, 5)}`,
+      updatedAt: new Date(),
+      userId: user_id.user.id,
+    })
+    .returning();
   return doc[0];
 };
 
-export const getAllDocs = async (): Promise<InferSelectModel<typeof docs>[]> => {
+export const getAllDocs = async (): Promise<
+  InferSelectModel<typeof docs>[]
+> => {
   const user_id = await getServerUserSession();
-  if(!user_id?.user.id) {
+  if (!user_id?.user.id) {
     throw new Error("User not found");
   }
-  const all_docs = await db.select().from(docs).where(eq(docs.userId, user_id.user.id));
+  const all_docs = await db
+    .select()
+    .from(docs)
+    .where(eq(docs.userId, user_id.user.id));
   return all_docs;
 };
 export type DocWithThread = InferSelectModel<typeof docs> & {
-  threads: (InferSelectModel<typeof thread>&{
+  threads: (InferSelectModel<typeof thread> & {
     messages: InferSelectModel<typeof messages>[];
   })[];
 };
 
-export const getDocById = async (docId: string): Promise<DocWithThread | null> => {
+export const getDocById = async (
+  docId: string,
+): Promise<DocWithThread | null> => {
   const session = await getServerUserSession();
 
   if (!session?.user.id) throw new Error("Unauthorized");
 
   const doc = await db.query.docs.findFirst({
-    where: (docs, { and, eq }) => and(
-      eq(docs.userId, session.user.id),
-      eq(docs.id, docId)
-    ),
+    where: (docs, { and, eq }) =>
+      and(eq(docs.userId, session.user.id), eq(docs.id, docId)),
     with: {
       threads: {
         with: {
@@ -266,27 +282,37 @@ export const getDocById = async (docId: string): Promise<DocWithThread | null> =
 
   return doc ?? null;
 };
-export const createThread = async (docId: string,stateId: string,prompt:string): Promise<InferSelectModel<typeof thread>> => {
+export const createThread = async (
+  docId: string,
+  stateId: string,
+  prompt: string,
+): Promise<InferSelectModel<typeof thread>> => {
   const user_id = await getServerUserSession();
-  if(!user_id?.user.id) {
+  if (!user_id?.user.id) {
     throw new Error("User not found");
   }
   const generateTitle = await axios.post(`${BACKEND_URL}/generate-chat-title`, {
-    conversation:prompt
+    conversation: prompt,
   });
   console.log(generateTitle.data);
-  const res = await db.insert(thread).values({
-    docId,
-    stateId,
-    title: generateTitle.data.title,
-  }).returning();
+  const res = await db
+    .insert(thread)
+    .values({
+      docId,
+      stateId,
+      title: generateTitle.data.title,
+    })
+    .returning();
   return res[0];
 };
 
-
-export const getThreadMessages = async (threadId: string):Promise<AIMessageResponse> => {
-  const state = await axios.get(`${BACKEND_URL}/get-thread-messages/${threadId}`);
+export const getThreadMessages = async (
+  threadId: string,
+): Promise<AIMessageResponse> => {
+  const state = await axios.get(
+    `${BACKEND_URL}/get-thread-messages/${threadId}`,
+  );
   console.log(state.data.messages);
-  
+
   return state.data.messages;
-}
+};

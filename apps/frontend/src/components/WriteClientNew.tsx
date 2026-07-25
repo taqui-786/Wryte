@@ -1,18 +1,48 @@
 "use client";
-import { useRef, useState } from "react";
+import { Edit03Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import dynamic from "next/dynamic";
+import { useCallback, useRef, useState } from "react";
+import { useAutosave } from "@/hooks/useAutosave";
+import { type DocWithThread, updateUserDocs } from "@/lib/serverAction";
+import AgentSidebarNew from "./agent/AgentSidebarNew";
+import type { AIChange } from "./my-editor/MyEditor";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "./ui/resizable";
 import { ScrollArea } from "./ui/scroll-area";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Edit03Icon } from "@hugeicons/core-free-icons";
-import MyEditor, { AIChange } from "./my-editor/MyEditor";
-import AgentSidebarNew from "./agent/AgentSidebarNew";
-import { DocWithThread } from "@/lib/serverAction";
+import { Skeleton } from "./ui/skeleton";
+
+const MyEditor = dynamic(() => import("./my-editor/MyEditor"), {
+  ssr: false,
+  loading: () => <EditorSkeleton />,
+});
+
+function EditorSkeleton() {
+  return (
+    <div className="border border-border">
+      <div className="border-b border-border px-3 py-2 flex items-center gap-2">
+        <Skeleton className="h-7 w-7 rounded-md" />
+        <Skeleton className="h-7 w-7 rounded-md" />
+        <Skeleton className="h-7 w-7 rounded-md" />
+        <Skeleton className="h-7 w-7 rounded-md" />
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-5 w-8 rounded-full" />
+        </div>
+      </div>
+      <div className="min-h-[500px] p-4 space-y-3">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    </div>
+  );
+}
 
 type Props = { doc: DocWithThread };
 
@@ -27,11 +57,25 @@ const WriteClientNew: React.FC<Props> = ({ doc }) => {
     setValue((prev) => prev + content);
   };
   const handleApplyChanges = (changes: AIChange[]) => {
-  editorRef.current?.applyAIChanges(changes);
-  // Also sync the value state for save/send scenarios
-  const newMd = editorRef.current?.getMarkdownAfterAIChanges(changes);
-  if (newMd) setValue(newMd);
-};
+    editorRef.current?.applyAIChanges(changes);
+    // Also sync the value state for save/send scenarios
+    const newMd = editorRef.current?.getMarkdownAfterAIChanges(changes);
+    if (newMd) setValue(newMd);
+  };
+
+  const handleSave = useCallback(
+    async (payload: { docId: string; title: string; content: string }) => {
+      await updateUserDocs(payload);
+    },
+    [],
+  );
+
+  const autosave = useAutosave({
+    docId: doc.id,
+    title: heading,
+    content: value,
+    onSave: handleSave,
+  });
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="overflow-hidden ">
@@ -80,6 +124,11 @@ const WriteClientNew: React.FC<Props> = ({ doc }) => {
                 onChange={(val) => setValue(val)}
                 value={value}
                 isLocked={isAIApplying}
+                autosaveEnabled={autosave.autosaveEnabled}
+                onToggleAutosave={autosave.toggleAutosave}
+                onSaveNow={autosave.saveNow}
+                isSaving={autosave.isSaving}
+                hasUnsavedChanges={autosave.hasUnsavedChanges}
               />
             </div>
           </div>

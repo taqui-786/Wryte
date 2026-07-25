@@ -1,13 +1,6 @@
-import React from "react";
-import { EditorView } from "prosemirror-view";
-import { toggleMark, setBlockType, wrapIn, lift } from "prosemirror-commands";
-import { undo, redo } from "prosemirror-history";
-
-import { Button } from "@/components/ui/button";
-import { wrapInList } from "prosemirror-schema-list";
-import EditorLinkPopover from "./EditorLinkPopover";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  CheckmarkCircle02Icon,
+  CloudUploadIcon,
   CodeIcon,
   CodeSimpleIcon,
   CodeSquareIcon,
@@ -15,7 +8,6 @@ import {
   Heading02Icon,
   Heading03Icon,
   LeftToRightListNumberIcon,
-  Loading03Icon,
   MinusSignIcon,
   ParagraphBulletsPoint01Icon,
   QuoteDownIcon,
@@ -27,12 +19,33 @@ import {
   TextUnderlineIcon,
   Undo03Icon,
 } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { lift, setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
+import { redo, undo } from "prosemirror-history";
+import { wrapInList } from "prosemirror-schema-list";
+import type { EditorView } from "prosemirror-view";
+import type React from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import EditorLinkPopover from "./EditorLinkPopover";
 
 interface TestingToolbarProps {
   viewRef: React.MutableRefObject<EditorView | null>;
   mySchema: any;
   isFocused: boolean;
   isLocked?: boolean;
+  autosaveEnabled?: boolean;
+  onToggleAutosave?: () => void;
+  onSaveNow?: () => Promise<void> | void;
+  isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
 }
 
 // Prevent editor from losing focus when clicking toolbar buttons
@@ -45,6 +58,11 @@ export function MyEditorToolbar({
   mySchema,
   isFocused,
   isLocked = false,
+  autosaveEnabled = true,
+  onToggleAutosave,
+  onSaveNow,
+  isSaving = false,
+  hasUnsavedChanges = false,
 }: TestingToolbarProps) {
   const isDisabled = isLocked;
   const toggleBold = () => {
@@ -522,13 +540,74 @@ export function MyEditorToolbar({
           </Button>
         </div>
       </div>
-      <div className="flex items-center justify-center">
-        {isLocked && (
-          <HugeiconsIcon
-            icon={Loading03Icon}
-            className="size-5 animate-spin text-primary"
-          />
+      <div className="flex items-center gap-2 pl-2 ml-auto">
+        {/* Saving indicator: spinner while saving, check when recently saved */}
+        {isSaving ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Spinner className="size-4 text-primary" />
+                <span className="hidden sm:inline">Saving…</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Saving changes</TooltipContent>
+          </Tooltip>
+        ) : (
+          !hasUnsavedChanges && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {/* <HugeiconsIcon
+                    icon={CheckmarkCircle02Icon}
+                    size="16"
+                    className="text-emerald-500"
+                  /> */}
+                  <span className="hidden sm:inline text-primary">Saved</span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>All changes saved</TooltipContent>
+            </Tooltip>
+          )
         )}
+
+        {/* Manual "Save changes" button — only visible when autosave is OFF */}
+        {!autosaveEnabled && (
+          <Button
+            type="button"
+            size="sm"
+            variant={hasUnsavedChanges ? "default" : "outline"}
+            onClick={() => onSaveNow?.()}
+            disabled={isSaving || !hasUnsavedChanges}
+            onMouseDown={preventFocusLoss}
+            className="gap-1.5"
+          >
+            <HugeiconsIcon icon={CloudUploadIcon} size="16" />
+            <span>Save changes</span>
+          </Button>
+        )}
+
+        {/* Autosave on/off toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5">
+              <Label
+                htmlFor="autosave-toggle"
+                className="text-xs text-muted-foreground cursor-pointer hidden sm:inline"
+              >
+                Auto-save
+              </Label>
+              <Switch
+                id="autosave-toggle"
+                checked={autosaveEnabled}
+                onCheckedChange={onToggleAutosave}
+                disabled={isSaving}
+              />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            {autosaveEnabled ? "Auto-save is ON" : "Auto-save is OFF"}
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

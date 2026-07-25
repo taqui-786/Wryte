@@ -1,5 +1,16 @@
 "use client";
 
+import { useCompletion } from "@ai-sdk/react";
+import {
+  DOMParser,
+  Fragment,
+  type Node as PMNode,
+  Schema,
+  Slice,
+} from "prosemirror-model";
+import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
+import { EditorState } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 import React, {
   forwardRef,
   useCallback,
@@ -8,28 +19,17 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { nodes as basicNodes, marks } from "./myEditorSchema";
-import {
-  DOMParser,
-  Fragment,
-  Schema,
-  Slice,
-  Node as PMNode,
-} from "prosemirror-model";
-import { orderedList, bulletList, listItem } from "prosemirror-schema-list";
-import { MyEditorToolbar } from "./MyEditorToolbar";
-import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
-import { EditorView } from "prosemirror-view";
 import { createEditorState } from "./EditorConfig";
-import { EditorState } from "prosemirror-state";
-import { useCompletion } from "@ai-sdk/react";
+import { markActive, toolMarkActive, toolMarkInactive } from "./helper";
+import { MyEditorToolbar } from "./MyEditorToolbar";
 import type { AutocompleteRequest } from "./MyPlugins";
+import { nodes as basicNodes, marks } from "./myEditorSchema";
 // @ts-ignore
 import "./myEditorStyle.css";
 import { marked } from "marked";
-import { customMarkdownSerializer } from "./EditorConfig";
 import { toast } from "sonner";
 import { parseAiApiError } from "@/lib/ai-api-error";
+import { customMarkdownSerializer } from "./EditorConfig";
 
 /** A single line-level change from the AI */
 export type AIChange = {
@@ -134,8 +134,25 @@ const MyEditor = forwardRef<
     value: string;
     onChange?: (value: string) => void;
     isLocked?: boolean;
+    autosaveEnabled?: boolean;
+    onToggleAutosave?: () => void;
+    onSaveNow?: () => Promise<void> | void;
+    isSaving?: boolean;
+    hasUnsavedChanges?: boolean;
   }
->(function MyEditor({ value, onChange, isLocked = false }, ref) {
+>(function MyEditor(
+  {
+    value,
+    onChange,
+    isLocked = false,
+    autosaveEnabled = true,
+    onToggleAutosave,
+    onSaveNow,
+    isSaving = false,
+    hasUnsavedChanges = false,
+  },
+  ref,
+) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -563,12 +580,21 @@ const MyEditor = forwardRef<
         mySchema={mySchema}
         isFocused={isFocused}
         isLocked={isLocked}
+        autosaveEnabled={autosaveEnabled}
+        onToggleAutosave={onToggleAutosave}
+        onSaveNow={onSaveNow}
+        isSaving={isSaving}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
 
       <div
         ref={editorRef}
         spellCheck={false}
-        className={isLocked ? "pointer-events-none opacity-80" : undefined}
+        // Reserve space before ProseMirror mounts (prevents layout shift).
+        // Matches .prose-editor min-height in myEditorStyle.css.
+        className={`min-h-[500px] ${
+          isLocked ? "pointer-events-none opacity-80" : ""
+        }`}
       />
     </div>
   );
