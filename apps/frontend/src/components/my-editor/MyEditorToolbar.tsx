@@ -341,203 +341,263 @@ export function MyEditorToolbar({
     >
       <div className="flex flex-wrap gap-2">
         <div className="flex gap-1 mr-4">
-          <Button
-            type="button"
-            onClick={undoAction}
-            onMouseDown={preventFocusLoss}
-            className={""}
-            title="Undo (Ctrl+Z)"
-            size={"icon-sm"}
-            variant={"ghost"}
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={Undo03Icon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={redoAction}
-            onMouseDown={preventFocusLoss}
-            className={""}
-            title="Redo (Ctrl+Y)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={Redo03Icon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                onClick={undoAction}
+                onMouseDown={preventFocusLoss}
+                className={""}
+                size={"icon-sm"}
+                variant={"ghost"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={Undo03Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={redoAction}
+                onMouseDown={preventFocusLoss}
+                className={""}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={Redo03Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="flex gap-1 border-x border-x-border px-2">
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleBold}
-            onMouseDown={preventFocusLoss}
-            className={"tool-strong"}
-            title="Bold (Ctrl+B)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={TextBoldIcon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleItalic}
-            onMouseDown={preventFocusLoss}
-            className={"tool-em"}
-            title="Italic (Ctrl+I)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={TextItalicIcon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleBold}
+                onMouseDown={preventFocusLoss}
+                className={"tool-strong"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={TextBoldIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Bold (Ctrl+B)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleItalic}
+                onMouseDown={preventFocusLoss}
+                className={"tool-em"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={TextItalicIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Italic (Ctrl+I)</TooltipContent>
+          </Tooltip>
 
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleUnderline}
-            onMouseDown={preventFocusLoss}
-            className={"tool-underline"}
-            title="Underline (Ctrl+U)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={TextUnderlineIcon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleStrike}
-            onMouseDown={preventFocusLoss}
-            className={"tool-strike"}
-            title="Strikethrough (Ctrl+D)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={TextStrikethroughIcon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleUnderline}
+                onMouseDown={preventFocusLoss}
+                className={"tool-underline"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={TextUnderlineIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Underline (Ctrl+U)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleStrike}
+                onMouseDown={preventFocusLoss}
+                className={"tool-strike"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={TextStrikethroughIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Strikethrough (Ctrl+D)</TooltipContent>
+          </Tooltip>
           <EditorLinkPopover
             viewRef={viewRef}
             mySchema={mySchema}
             isLocked={isDisabled}
           />
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleCode}
-            onMouseDown={preventFocusLoss}
-            className={"tool-code"}
-            title="Inline Code (Ctrl+`)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={CodeSimpleIcon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleCode}
+                onMouseDown={preventFocusLoss}
+                className={"tool-code"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={CodeSimpleIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Inline Code (Ctrl+`)</TooltipContent>
+          </Tooltip>
         </div>
 
         <div className="flex gap-1 border-r border-r-border pr-2">
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={() => toggleHeading(1)}
-            onMouseDown={preventFocusLoss}
-            className={"tool-heading1"}
-            title="Heading 1 (Ctrl+Alt+1)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={Heading01Icon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={() => toggleHeading(2)}
-            onMouseDown={preventFocusLoss}
-            className={"tool-heading2"}
-            title="Heading 2 (Ctrl+Alt+2)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={Heading02Icon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={() => toggleHeading(3)}
-            onMouseDown={preventFocusLoss}
-            className={"tool-heading3"}
-            title="Heading 3 (Ctrl+Alt+3)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={Heading03Icon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={() => toggleHeading(1)}
+                onMouseDown={preventFocusLoss}
+                className={"tool-heading1"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={Heading01Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Heading 1 (Ctrl+Alt+1)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={() => toggleHeading(2)}
+                onMouseDown={preventFocusLoss}
+                className={"tool-heading2"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={Heading02Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Heading 2 (Ctrl+Alt+2)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={() => toggleHeading(3)}
+                onMouseDown={preventFocusLoss}
+                className={"tool-heading3"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={Heading03Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Heading 3 (Ctrl+Alt+3)</TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex gap-1 border-r border-r-border pr-2">
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleNumberedList}
-            onMouseDown={preventFocusLoss}
-            className={"tool-ordered_list"}
-            title="Numbered List (Ctrl+Shift+7)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={LeftToRightListNumberIcon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleBulletedList}
-            onMouseDown={preventFocusLoss}
-            className={"tool-bullet_list"}
-            title="Bullet List (Ctrl+Shift+8)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={ParagraphBulletsPoint01Icon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleNumberedList}
+                onMouseDown={preventFocusLoss}
+                className={"tool-ordered_list"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={LeftToRightListNumberIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Numbered List (Ctrl+Shift+7)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleBulletedList}
+                onMouseDown={preventFocusLoss}
+                className={"tool-bullet_list"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={ParagraphBulletsPoint01Icon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Bullet List (Ctrl+Shift+8)</TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex gap-1 pr-2 ">
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleCodeBlock}
-            onMouseDown={preventFocusLoss}
-            className={"tool-code_block"}
-            title="Code Block (Ctrl+Shift+C)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={SourceCodeSquareIcon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleCodeBlock}
+                onMouseDown={preventFocusLoss}
+                className={"tool-code_block"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={SourceCodeSquareIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Code Block (Ctrl+Shift+C)</TooltipContent>
+          </Tooltip>
 
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleQuote}
-            onMouseDown={preventFocusLoss}
-            className={"tool-blockquote"}
-            title="Blockquote (Ctrl+Shift+B)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={QuoteDownIcon} size="16" />
-          </Button>
-          <Button
-            size={"icon-sm"}
-            variant={"ghost"}
-            type="button"
-            onClick={toggleDivider}
-            onMouseDown={preventFocusLoss}
-            className={"tool-hr"}
-            title="Horizontal Rule (Ctrl+Shift+H)"
-            disabled={isDisabled}
-          >
-            <HugeiconsIcon icon={MinusSignIcon} size="16" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleQuote}
+                onMouseDown={preventFocusLoss}
+                className={"tool-blockquote"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={QuoteDownIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Blockquote (Ctrl+Shift+B)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size={"icon-sm"}
+                variant={"ghost"}
+                type="button"
+                onClick={toggleDivider}
+                onMouseDown={preventFocusLoss}
+                className={"tool-hr"}
+                disabled={isDisabled}
+              >
+                <HugeiconsIcon icon={MinusSignIcon} size="16" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Horizontal Rule (Ctrl+Shift+H)</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <div className="flex items-center gap-2 pl-2 ml-auto">
@@ -572,18 +632,23 @@ export function MyEditorToolbar({
 
         {/* Manual "Save changes" button — only visible when autosave is OFF */}
         {!autosaveEnabled && (
-          <Button
-            type="button"
-            size="sm"
-            variant={hasUnsavedChanges ? "default" : "outline"}
-            onClick={() => onSaveNow?.()}
-            disabled={isSaving || !hasUnsavedChanges}
-            onMouseDown={preventFocusLoss}
-            className="gap-1.5"
-          >
-            <HugeiconsIcon icon={CloudUploadIcon} size="16" />
-            <span>Save changes</span>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant={hasUnsavedChanges ? "default" : "outline"}
+                onClick={() => onSaveNow?.()}
+                disabled={isSaving || !hasUnsavedChanges}
+                onMouseDown={preventFocusLoss}
+                className="gap-1.5"
+              >
+                <HugeiconsIcon icon={CloudUploadIcon} size="16" />
+                <span>Save changes</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save changes now (Ctrl+S)</TooltipContent>
+          </Tooltip>
         )}
 
         {/* Autosave on/off toggle */}

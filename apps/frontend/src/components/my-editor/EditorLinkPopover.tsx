@@ -11,6 +11,11 @@ import { Trash2, ExternalLink } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import { EditorView } from "prosemirror-view";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { LinkSolid } from "./editorIcons";
 
 interface LinkPopoverProps {
@@ -211,20 +216,24 @@ function EditorLinkPopover({
 
   return (
     <Popover open={isLinkPopoverOpen} onOpenChange={setIsLinkPopoverOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          size={"icon-sm"}
-          variant={"ghost"}
-          type="button"
-          onClick={toggleLink}
-          onMouseDown={(e) => e.preventDefault()}
-          className="tool-link"
-          title="Link (Ctrl+K)"
-          disabled={isLocked}
-        >
-          <LinkSolid size={"16"} />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              size={"icon-sm"}
+              variant={"ghost"}
+              type="button"
+              onClick={toggleLink}
+              onMouseDown={(e) => e.preventDefault()}
+              className="tool-link"
+              disabled={isLocked}
+            >
+              <LinkSolid size={"16"} />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Link (Ctrl+K)</TooltipContent>
+      </Tooltip>
       <PopoverContent className="w-96 z-[99999]">
         <div className="grid gap-4">
           <div className="space-y-2">
