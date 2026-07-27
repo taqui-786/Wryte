@@ -116,11 +116,19 @@ export const messages = pgTable("messages", {
     .notNull()
     .references(() => thread.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["human", "ai"] }).notNull(),
-  index:integer("index").notNull(),
+  index: integer("index").notNull(),
   data: jsonb("data").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-export const docsRelations = relations(docs, ({ many }) => ({
+export const userRelations = relations(user, ({ many }) => ({
+  docs: many(docs),
+}));
+
+export const docsRelations = relations(docs, ({ one, many }) => ({
+  author: one(user, {
+    fields: [docs.userId],
+    references: [user.id],
+  }),
   threads: many(thread),
 }));
 

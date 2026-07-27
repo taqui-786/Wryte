@@ -1,12 +1,12 @@
 "use server";
+import axios from "axios";
+import { and, eq, type InferSelectModel } from "drizzle-orm";
+import { headers } from "next/headers";
+import { cache } from "react";
+import type { AIMessageResponse } from "@/components/agent/agent-sidebar/types";
 import { db } from "@/db/dbConnect";
 import { docs, messages, thread } from "@/db/schema/auth-schema";
 import { auth } from "@/lib/auth";
-import { and, eq, InferSelectModel } from "drizzle-orm";
-import { headers } from "next/headers";
-import { cache } from "react";
-import axios from "axios";
-import { AIMessageResponse } from "@/components/agent/agent-sidebar/types";
 // ---------------------------------------------------------------------------
 // Auth helper — kept (uses better-auth, not DB directly)
 // ---------------------------------------------------------------------------
@@ -280,6 +280,31 @@ export const getDocById = async (
     },
   });
 
+  return doc ?? null;
+};
+
+export type PublicDocWithAuthor = InferSelectModel<typeof docs> & {
+  author?: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  } | null;
+};
+
+/**
+ * Public, unauthed doc fetch for the `/p/[id]` reader view.
+ * Fetches doc along with the author details (name, image).
+ */
+export const getPublicDocById = async (
+  docId: string,
+): Promise<PublicDocWithAuthor | null> => {
+  const doc = await db.query.docs.findFirst({
+    where: (docs, { eq }) => eq(docs.id, docId),
+    with: {
+      author: true,
+    },
+  });
   return doc ?? null;
 };
 export const createThread = async (

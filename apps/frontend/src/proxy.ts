@@ -10,7 +10,9 @@ const hasAdminRole = (role: string | string[] | null | undefined): boolean => {
 export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const pathname = request.nextUrl.pathname;
-  const isPublicRoute = pathname === "/" || pathname === "/signin";
+  const isAuthRoute =
+    pathname === "/" || pathname === "/signin";
+  const isSharedRoute = pathname.startsWith("/p");
   const isAdminRoute = pathname.startsWith("/admin");
 
   if (isAdminRoute) {
@@ -30,13 +32,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // If user has a session and tries to access public routes, redirect to /dashboard
-  if (sessionCookie && isPublicRoute) {
+  // Shared routes (/p/*) are accessible to everyone — no redirect.
+  if (isSharedRoute) {
+    return NextResponse.next();
+  }
+
+  // If user has a session and tries to access auth routes, redirect to /dashboard
+  if (sessionCookie && isAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // If user doesn't have a session and tries to access protected routes, redirect to /
-  if (!sessionCookie && !isPublicRoute) {
+  if (!sessionCookie && !isAuthRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

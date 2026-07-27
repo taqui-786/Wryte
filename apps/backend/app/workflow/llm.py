@@ -5,12 +5,12 @@ from app.config import settings
 
 
 llm = ChatNVIDIA(
-    model="stepfun-ai/step-3.5-flash",
+    model="poolside/laguna-xs-2.1",
     api_key=settings.NVIDIA_API_KEY,
     temperature=1,
     top_p=0.95,
     max_completion_tokens=16384,
-    model_kwargs={"enable_thinking": True, "reasoning_budget": 3000},
+    # model_kwargs={"enable_thinking": True, "reasoning_budget": 3000},
 )
 
 llm_powerfull = ChatNVIDIA(
@@ -23,11 +23,11 @@ llm_powerfull = ChatNVIDIA(
 )
 
 llm_secondary = ChatNVIDIA(
-    model="stepfun-ai/step-3.5-flash",
+    model="poolside/laguna-xs-2.1",
     api_key=settings.NVIDIA_API_KEY,
     temperature=0.3,
     max_completion_tokens=8192,
-    model_kwargs={"enable_thinking": False},
+    # model_kwargs={"enable_thinking": False},
 )
 llm_structure = ChatNVIDIA(
     model="openai/gpt-oss-120b",
