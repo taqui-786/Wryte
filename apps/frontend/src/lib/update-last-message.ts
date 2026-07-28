@@ -1,8 +1,22 @@
 import type {
   AIMessageResponse,
   AiMessageStreaming,
+  ContentBlock,
   StreamingPart,
 } from "@/components/agent/agent-sidebar/types";
+
+function extractText(content: string | ContentBlock[]): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((b): b is ContentBlock & { type: "text" } => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("");
+}
+
+function hasReasoningBlock(content: string | ContentBlock[]): boolean {
+  return Array.isArray(content) && content.some((b) => b.type === "reasoning");
+}
 
 export function updateLastAiMessage(
   messages: AIMessageResponse,
@@ -15,14 +29,19 @@ export function updateLastAiMessage(
   if (last.type !== "ai") return messages;
 
   const data = { ...last.data };
-  data.content =
-    (data.content || "") +
-    (chunk.message.type !== "tool" ? chunk.message.content : "");
 
   if (chunk.message.type === "AIMessageChunk") {
+    const text = extractText(chunk.message.content);
+
+    data.content = (data.content || "") + text;
+
+    const isReasoning =
+      hasReasoningBlock(chunk.message.content) ||
+      (chunk.message.additional_kwargs?.reasoning ? true : false);
+
     data.additional_kwargs = {
       ...data.additional_kwargs,
-      isReasoning: chunk.message.additional_kwargs?.reasoning ? true : false,
+      isReasoning,
       reasoning:
         (data.additional_kwargs.reasoning || "") +
         (chunk.message.additional_kwargs?.reasoning || ""),
@@ -44,10 +63,14 @@ export function updateLastAiMessage(
     }
 
     if (chunk.message.usage_metadata) {
-      data.usage_metadata = chunk.message.usage_metadata;
+      data.usage_metadata = {
+        ...chunk.message.usage_metadata,
+        input_token_details: chunk.message.usage_metadata.input_token_details,
+        output_token_details: chunk.message.usage_metadata.output_token_details,
+      };
     }
 
-    if (chunk.message.response_metadata?.finish_reason) {
+    if (chunk.message.response_metadata) {
       data.response_metadata = {
         ...data.response_metadata,
         ...chunk.message.response_metadata,
@@ -59,8 +82,6 @@ export function updateLastAiMessage(
         tc.name === chunk.message.name &&
         tc.id === chunk.message.tool_call_id
       ) {
-        console.log(tc.name, "Completed");
-
         tc.isRunning = false;
       }
     }

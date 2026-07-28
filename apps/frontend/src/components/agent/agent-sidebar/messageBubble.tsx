@@ -9,6 +9,11 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { StreamingMessage } from "@/components/ai-elements/streaming-message";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   HumanMessage,
   AIMessage,
   ToolCall,
@@ -232,43 +237,62 @@ export function MessageBubble({
     });
   }
 
+  const bubble = (
+    <div
+      className={`group-data-[user-type=false]:w-full w-fit 2xl:max-w-[80%] max-w-full rounded-lg p-3 ${
+        isUser
+          ? "bg-primary text-primary-foreground"
+          : "bg-background text-foreground"
+      }`}
+    >
+      {renderParts()}
+    </div>
+  );
+
+  const usage = !isUser ? message.data.usage_metadata : null;
+
   return (
     <div
       className={`mb-4 group flex ${isUser ? "justify-end" : "justify-start"}`}
       data-user-type={isUser}
     >
-      <div
-        className={`group-data-[user-type=false]:w-full w-fit 2xl:max-w-[80%] max-w-full rounded-lg p-3 ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-background text-foreground"
-        }`}
-      >
-        {renderParts()}
-        {/* {reasoningText?.length > 0 && (
-          <Reasoning
-            key="reasoning-block"
-            className="w-full"
-            defaultOpen={parts?.length > 0}
-            isStreaming={message.data.additional_kwargs?.isReasoning as boolean}
-          >
-            <ReasoningTrigger />
-            <ReasoningContent>{reasoningText ?? ""}</ReasoningContent>
-          </Reasoning>
-        )} */}
-
-        {/* {toolCalls.map((tc) => (
-          <ToolCallCard key={tc.id} toolCall={tc} />
-        ))} */}
-
-        {/* <div className="whitespace-pre-wrap" key={`text-${message.data.id}`}>
-          <StreamingMessage
-            markdown
-            animate={parts?.length > 0 && message.type === "ai"}
-            text={message.data.content ?? ""}
-          />
-        </div> */}
-      </div>
+      {usage ? (
+        <Tooltip>
+          <TooltipTrigger asChild>{bubble}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-56">
+            <div className="space-y-1">
+              <div className="flex gap-3">
+                <span>
+                  In: <strong>{usage.input_tokens}</strong>
+                </span>
+                <span>
+                  Out: <strong>{usage.output_tokens}</strong>
+                </span>
+                <span>
+                  Total: <strong>{usage.total_tokens}</strong>
+                </span>
+              </div>
+              {(usage.input_token_details?.cache_read !== undefined ||
+                usage.output_token_details?.reasoning !== undefined) && (
+                <div className="flex gap-3 text-[11px] opacity-80">
+                  {usage.input_token_details?.cache_read !== undefined && (
+                    <span>
+                      Cache read: <strong>{usage.input_token_details.cache_read}</strong>
+                    </span>
+                  )}
+                  {usage.output_token_details?.reasoning !== undefined && (
+                    <span>
+                      Reasoning: <strong>{usage.output_token_details.reasoning}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        bubble
+      )}
     </div>
   );
 }

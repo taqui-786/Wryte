@@ -155,8 +155,19 @@ const AgentSidebarNew: React.FC<{
             }
 
             // Handle full content from humanize (for initial writes, not edits)
-            if (chunk.node === "humanize" && chunk.message.content) {
-              onEditorValueChange(chunk.message.content);
+            if (chunk.node === "humanize") {
+              const text =
+                typeof chunk.message.content === "string"
+                  ? chunk.message.content
+                  : Array.isArray(chunk.message.content)
+                    ? chunk.message.content
+                        .filter((b: any) => b.type === "text")
+                        .map((b: any) => b.text)
+                        .join("")
+                    : "";
+              if (text) {
+                onEditorValueChange(text);
+              }
             }
 
             // Rest: update message UI

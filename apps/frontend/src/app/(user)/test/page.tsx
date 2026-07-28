@@ -1,9 +1,15 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { AiMessageStreaming, AIMessage, StreamingPart, AIMessageChunkStream } from '@/components/agent/agent-sidebar/types'
+import type { AiMessageStreaming, AIMessage, StreamingPart, AIMessageChunkStream, ContentBlock } from '@/components/agent/agent-sidebar/types'
 import { MessageBubble } from '@/components/agent/agent-sidebar/messageBubble'
 import { sampleAiStreamingResponse } from './sample-streaming-data'
+
+function textFromContent(content: string | ContentBlock[]): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.filter((b) => b.type === 'text').map((b) => b.text).join('')
+}
 
 function buildAIMessage(chunks: AiMessageStreaming[]): AIMessage | null {
   if (chunks.length === 0) return null
@@ -11,7 +17,7 @@ function buildAIMessage(chunks: AiMessageStreaming[]): AIMessage | null {
   const aiChunks = chunks
     .map((c) => c.message)
     .filter((m): m is AIMessageChunkStream => m.type === 'AIMessageChunk')
-  const fullContent = aiChunks.map((c) => c.content).join('')
+  const fullContent = aiChunks.map((c) => textFromContent(c.content)).join('')
 
   const rawParts: StreamingPart[] = []
   for (const chunk of aiChunks) {
@@ -21,8 +27,9 @@ function buildAIMessage(chunks: AiMessageStreaming[]): AIMessage | null {
         content: chunk.additional_kwargs.reasoning_content as string,
       })
     }
-    if (chunk.content) {
-      rawParts.push({ type: 'content', content: chunk.content })
+    const text = textFromContent(chunk.content)
+    if (text) {
+      rawParts.push({ type: 'content', content: text })
     }
     if (chunk.tool_calls?.length) {
       for (const tc of chunk.tool_calls) {

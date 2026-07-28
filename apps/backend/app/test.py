@@ -20,11 +20,16 @@ llm = ChatNVIDIA(
 )
 
 testing = ChatOpenAI(
-    model="deepseek-v4-flash-free",
-    base_url="https://opencode.ai/zen/v1",
-    api_key="sk-NcrPXERPgaabwNSF0LJ4Lkt73sjjf2It4eESXNpjvTxstHT6C0ra8JTWM1OTGi3N",
-    reasoning_effort="low"
+    model="mistralai/mistral-small-4-119b-2603",
+    base_url="https://integrate.api.nvidia.com/v1/chat/completions",
+    api_key=os.getenv("NVIDIA_API_KEY"),
+    # reasoning_effort="low"
 )
+# llm_testing = ChatOpenAI(
+#     base_url="https://openrouter.ai/api/v1",
+#     model="qwen/qwen3.7-flash",
+#     stream_usage=True,
+# )
 
 # ── Graph ─────────────────────────────────────────────────────────────────────
 class State(TypedDict):

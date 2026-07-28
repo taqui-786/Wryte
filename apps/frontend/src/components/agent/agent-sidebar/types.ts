@@ -54,7 +54,15 @@ export interface AIMessage extends BaseMessage {
       input_tokens: number;
       output_tokens: number;
       total_tokens: number;
-    };
+      input_token_details?: {
+        cache_read?: number;
+        [key: string]: unknown;
+      };
+      output_token_details?: {
+        reasoning?: number;
+        [key: string]: unknown;
+      };
+    } | null;
   };
 }
 
@@ -88,9 +96,13 @@ export type AiMessageStreaming = {
   message: AIMessageChunkStream | ToolMessageStream;
 };
 
+export type ContentBlock =
+  | { type: "text"; text: string; index: number; id?: string }
+  | { type: "reasoning"; id?: string; summary?: unknown[]; status?: string; index: number; text?: string };
+
 export interface AIMessageChunkStream {
   type: "AIMessageChunk";
-  content: string;
+  content: string | ContentBlock[];
   additional_kwargs: {
     reasoning_content?: string;
     reasoning?: string;
@@ -110,6 +122,14 @@ export interface AIMessageChunkStream {
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
+    input_token_details?: {
+      cache_read?: number;
+      [key: string]: unknown;
+    };
+    output_token_details?: {
+      reasoning?: number;
+      [key: string]: unknown;
+    };
   } | null;
   tool_call_chunks: {
     name: string;
