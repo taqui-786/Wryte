@@ -2,59 +2,48 @@ from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
 from langchain_openai import ChatOpenAI
 
 from app.config import settings
-# llm = ChatNVIDIA(
-#     model="minimaxai/minimax-m3",
-#     api_key=settings.NVIDIA_API_KEY,
-#     temperature=1,
-#     top_p=0.95,
-#     max_completion_tokens=16384,
 
-#     # model_kwargs={"reasoning": True, "reasoning_budget": 3000},
-# )
+# Fast, lightweight model for summarization, routing, memory extraction (low token cost)
+llm_lightweight = ChatNVIDIA(
+    model="meta/llama-3.1-8b-instruct",
+    api_key=settings.NVIDIA_API_KEY,
+    temperature=0.2,
+)
+
+# DeepSeek V4 models for primary chat, planning, and execution
 llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
+    base_url="https://api.deepinfra.com/v1/openai",
     api_key=settings.OPENROUTER_API_KEY,
-    model="deepseek/deepseek-v4-flash",
+    model="deepseek-ai/DeepSeek-V4-Flash",
+    temperature=0.7,
     stream_usage=True,
-    reasoning={
-        "effort": "low"
-    },
-    extra_body={
-    "provider": {
-        "only": ["deepinfra/fp4"]
-    }
-}
-)
-
-llm_powerfull = ChatNVIDIA(
-    model="qwen/qwen3.5-397b-a17b",
-    api_key=settings.NVIDIA_API_KEY,
-    temperature=0,
-    top_p=0.95,
     max_completion_tokens=16384,
-    model_kwargs={"enable_thinking": False},
+    reasoning_effort="low",
 )
 
-llm_secondary = ChatNVIDIA(
-    model="minimaxai/minimax-m3",
-    api_key=settings.NVIDIA_API_KEY,
-    temperature=0.3,
-    max_completion_tokens=8192,
-    # model_kwargs={"enable_thinking": False},
-)
-llm_structure = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
+llm_powerfull = ChatOpenAI(
+    base_url="https://api.deepinfra.com/v1/openai",
     api_key=settings.OPENROUTER_API_KEY,
-    model="deepseek/deepseek-v4-flash",
+    model="deepseek-ai/DeepSeek-V4-Flash",
+    temperature=0.3,
+    stream_usage=True,
+    max_completion_tokens=16384,
+)
+
+llm_secondary = ChatOpenAI(
+    base_url="https://api.deepinfra.com/v1/openai",
+    api_key=settings.OPENROUTER_API_KEY,
+    model="deepseek-ai/DeepSeek-V4-Flash",
+    temperature=0,
     stream_usage=False,
-    reasoning={
-        "effort": "low"
-    },
-    extra_body={
-    "provider": {
-        "only": ["deepinfra/fp4"]
-        }
-    },
+    max_completion_tokens=8192,
+)
+
+llm_structure = ChatOpenAI(
+    base_url="https://api.deepinfra.com/v1/openai",
+    api_key=settings.OPENROUTER_API_KEY,
+    model="deepseek-ai/DeepSeek-V4-Flash",
+    stream_usage=False,
     temperature=0,
     max_completion_tokens=8192,
 )
@@ -65,3 +54,4 @@ embeddings = NVIDIAEmbeddings(
     api_key=settings.NVIDIA_API_KEY,
     truncate="END",
 )
+

@@ -52,3 +52,4 @@ wheels/
 .devin
 .claude
 AGENTS.md
+skills-lock.json

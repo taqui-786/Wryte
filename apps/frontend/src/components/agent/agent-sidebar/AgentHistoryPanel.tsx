@@ -1,18 +1,24 @@
+import type { InferSelectModel } from "drizzle-orm";
+import type { messages, thread } from "@/db/schema/auth-schema";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "./time";
-import { InferSelectModel } from "drizzle-orm";
-import { messages, thread } from "@/db/schema/auth-schema";
 
 type AgentHistoryPanelProps = {
-  allChats?: (InferSelectModel<typeof thread> & {messages: InferSelectModel<typeof messages>[]})[];
+  allChats?: (InferSelectModel<typeof thread> & {
+    messages: InferSelectModel<typeof messages>[];
+  })[];
   activeChatId: string | null;
-  onSelectChat: (chatId: string,chatTitle:string, allMessages: InferSelectModel<typeof messages>[]) => void;
+  onSelectChat: (
+    chatId: string,
+    chatTitle: string,
+    allMessages: InferSelectModel<typeof messages>[],
+  ) => void;
 };
 
 export default function AgentHistoryPanel({
   allChats,
   activeChatId,
-  onSelectChat
+  onSelectChat,
 }: AgentHistoryPanelProps) {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-3">
@@ -35,7 +41,7 @@ export default function AgentHistoryPanel({
             <button
               key={chat.id}
               type="button"
-              onClick={() => onSelectChat(chat.id,chat.title, chat.messages)}
+              onClick={() => onSelectChat(chat.id, chat.title, chat.messages)}
               className={cn(
                 "w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors",
                 "hover:bg-muted",

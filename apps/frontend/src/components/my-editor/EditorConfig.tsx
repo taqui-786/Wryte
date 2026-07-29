@@ -60,35 +60,37 @@ export function createEditorState(
   requestAutocomplete?: AutocompleteRequest,
   onChange?: (json: any) => void,
 ) {
-  const insertHardBreaks = (count: number): Command => (state, dispatch) => {
-    const hardBreak = mySchema.nodes.hard_break;
-    if (!hardBreak) return false;
+  const insertHardBreaks =
+    (count: number): Command =>
+    (state, dispatch) => {
+      const hardBreak = mySchema.nodes.hard_break;
+      if (!hardBreak) return false;
 
-    // Keep default Enter behavior inside code blocks.
-    if (state.selection.$from.parent.type === mySchema.nodes.code_block) {
-      return false;
-    }
-
-    if (dispatch) {
-      let tr = state.tr;
-
-      if (!state.selection.empty) {
-        tr = tr.deleteSelection();
+      // Keep default Enter behavior inside code blocks.
+      if (state.selection.$from.parent.type === mySchema.nodes.code_block) {
+        return false;
       }
 
-      for (let i = 0; i < count; i++) {
-        tr = tr.replaceSelectionWith(hardBreak.create());
+      if (dispatch) {
+        let tr = state.tr;
+
+        if (!state.selection.empty) {
+          tr = tr.deleteSelection();
+        }
+
+        for (let i = 0; i < count; i++) {
+          tr = tr.replaceSelectionWith(hardBreak.create());
+        }
+
+        dispatch(tr.scrollIntoView());
       }
 
-      dispatch(tr.scrollIntoView());
-    }
+      if (viewRef.current) {
+        viewRef.current.focus();
+      }
 
-    if (viewRef.current) {
-      viewRef.current.focus();
-    }
-
-    return true;
-  };
+      return true;
+    };
 
   let startDoc: any;
 

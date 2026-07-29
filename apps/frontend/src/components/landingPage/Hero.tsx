@@ -11,11 +11,9 @@ function Hero() {
         <HandWrittenTitle title="Bold" />
 
         <HeroPahragraph />
-      
       </section>
     </div>
   );
 }
 
 export default Hero;
-

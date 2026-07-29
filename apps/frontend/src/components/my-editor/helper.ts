@@ -16,9 +16,7 @@ export function toolMarkActive(toolId: string) {
       size: "icon-sm",
     });
 
- el.className = ` ${newClasses} ${toolId}`;
-
-
+    el.className = ` ${newClasses} ${toolId}`;
   });
 }
 export function toolMarkInactive(toolId: string) {

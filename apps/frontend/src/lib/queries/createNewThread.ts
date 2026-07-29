@@ -11,8 +11,11 @@ export type CreateNewThreadSchema = {
 };
 
 export const useCreateNewThread = () => {
-
-  return useMutation<InferSelectModel<typeof thread>, Error, CreateNewThreadSchema>({
+  return useMutation<
+    InferSelectModel<typeof thread>,
+    Error,
+    CreateNewThreadSchema
+  >({
     mutationFn: async ({ docId, stateId, prompt }) => {
       const result = await createThread(docId, stateId, prompt);
       if (!result) {

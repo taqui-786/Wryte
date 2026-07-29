@@ -60,7 +60,6 @@ function UserHeader() {
       <SidebarTrigger />
       {isPending ? (
         <div className="flex items-center gap-3">
-       
           <Skeleton className="h-9 w-9 rounded-full" />
         </div>
       ) : (
@@ -70,7 +69,6 @@ function UserHeader() {
               variant="ghost"
               className="relative flex h-auto items-center gap-3 rounded-full px-2 py-1"
             >
-          
               <Avatar className="h-9 w-9">
                 <AvatarImage
                   src={user?.image as string}
@@ -92,10 +90,14 @@ function UserHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild >
+            <DropdownMenuItem asChild>
               <Link href="/settings">Settings</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={isLoading}>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={handleLogout}
+              disabled={isLoading}
+            >
               {isLoading ? "Logging out..." : "Logout"}
             </DropdownMenuItem>
           </DropdownMenuContent>

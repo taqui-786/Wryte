@@ -10,14 +10,14 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 # ── LLM ──────────────────────────────────────────────────────────────────────
-llm = ChatNVIDIA(
-    model="qwen/qwen3.5-397b-a17b",
-    api_key=os.getenv("NVIDIA_API_KEY"),
-    temperature=0,
-    top_p=0.95,
-    max_completion_tokens=16384,
-    # model_kwargs={"enable_thinking": False},
-)
+# llm = ChatNVIDIA(
+#     model="qwen/qwen3.5-397b-a17b",
+#     api_key=os.getenv("NVIDIA_API_KEY"),
+#     temperature=0,
+#     top_p=0.95,
+#     max_completion_tokens=16384,
+#     # model_kwargs={"enable_thinking": False},
+# )
 
 testing = ChatOpenAI(
     model="mistralai/mistral-small-4-119b-2603",
@@ -30,7 +30,16 @@ testing = ChatOpenAI(
 #     model="qwen/qwen3.7-flash",
 #     stream_usage=True,
 # )
-
+llm = ChatOpenAI(
+    base_url="https://api.deepinfra.com/v1/openai",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    model="deepseek-ai/DeepSeek-V4-Flash",
+    temperature=0.7,
+    stream_usage=True,
+    max_completion_tokens=16384,
+    reasoning_effort="low",
+    # extra_body={"provider": {"only": ["deepinfra/fp4"]}},
+)
 # ── Graph ─────────────────────────────────────────────────────────────────────
 class State(TypedDict):
     messages: Annotated[list[BaseModel], add_messages]
@@ -149,7 +158,7 @@ Rules:
 def test_opencode_model():
     """Quick test for the opencode/deepseek-v4-flash-free model"""
     print("--- Testing opencode/deepseek-v4-flash-free ---")
-    response = testing.invoke("Hello! Can you tell me a short joke?")
+    response = llm.invoke("Hello! Can you tell me a short joke?")
     print(f"Response: {response.content}")
     print("--- Test complete ---")
 

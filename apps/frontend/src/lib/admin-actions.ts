@@ -110,7 +110,6 @@ export async function getUserDocuments(_userId: string): Promise<
   return [];
 }
 
-
 export async function getUserDailyRequests(_userId: string): Promise<number> {
   await requireAdminSession();
   return 0;

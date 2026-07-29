@@ -59,7 +59,11 @@ export async function getUsageStatsQuery() {
       },
     ),
     weekly,
-    perChat: [] as Array<{ chatId: string; title: string; tokens: number; requests: number }>,
-
+    perChat: [] as Array<{
+      chatId: string;
+      title: string;
+      tokens: number;
+      requests: number;
+    }>,
   };
 }

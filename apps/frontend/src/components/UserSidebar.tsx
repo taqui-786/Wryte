@@ -51,9 +51,8 @@ type NavItem = {
 
 function UserSidebar() {
   const { mutate: createNewDoc, isPending: isCreatingDoc } = useCreateNewDoc();
-  const { data:allDocs, isLoading } = useGetAllDocs();
+  const { data: allDocs, isLoading } = useGetAllDocs();
   // DB-driven query removed — static empty docs list
-
 
   const url = usePathname();
 
@@ -63,11 +62,12 @@ function UserSidebar() {
       url: "/write",
       icon: QuillWrite02Icon,
       isActive: !url.startsWith("/doc/"),
-      items: allDocs?.map((doc) => ({
-        title: doc.title,
-        url: `/doc/${doc.id}`,
-        isActive: url === `/doc/${doc.id}`,
-      })) || [],
+      items:
+        allDocs?.map((doc) => ({
+          title: doc.title,
+          url: `/doc/${doc.id}`,
+          isActive: url === `/doc/${doc.id}`,
+        })) || [],
     },
   ];
 
@@ -113,16 +113,16 @@ function UserSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         <SidebarMenuSubItem>
-                              <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90" >
-                                <div
-                                  onClick={() => !isCreatingDoc ? createNewDoc() : null}
-                                  className="flex items-center gap-2"
-                                  
-                                >
-                                 {
-                                  isCreatingDoc ? (
-                                    <>
-                                     <HugeiconsIcon
+                          <SidebarMenuSubButton className="bg-primary text-primary-foreground hover:bg-primary/90">
+                            <div
+                              onClick={() =>
+                                !isCreatingDoc ? createNewDoc() : null
+                              }
+                              className="flex items-center gap-2"
+                            >
+                              {isCreatingDoc ? (
+                                <>
+                                  <HugeiconsIcon
                                     icon={Loading03Icon}
                                     size="16"
                                     className="mr-1 animate-spin"
@@ -130,10 +130,10 @@ function UserSidebar() {
                                   <span className="line-clamp-1 leading-tight">
                                     Creating...
                                   </span>
-                                    </>
-                                  ):(
-                                    <>
-                                     <HugeiconsIcon
+                                </>
+                              ) : (
+                                <>
+                                  <HugeiconsIcon
                                     icon={PlusSignIcon}
                                     size="16"
                                     className="mr-1 "
@@ -141,21 +141,19 @@ function UserSidebar() {
                                   <span className="line-clamp-1 leading-tight">
                                     Create new
                                   </span>
-                                    </>
-                                  )
-                                 }
-                                </div>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
+                                </>
+                              )}
+                            </div>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                         {isLoading ? (
                           <>
-                          <Skeleton className="h-4 w-full"/>
-                          <Skeleton className="h-4 w-full"/>
-                          <Skeleton className="h-4 w-full"/>
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
                           </>
                         ) : (
                           <>
-                            
                             {item.items?.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
                                 <SidebarMenuSubButton

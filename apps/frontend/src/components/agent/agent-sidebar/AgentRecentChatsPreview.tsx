@@ -1,6 +1,6 @@
+import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { formatRelativeTime } from "./time";
-import { Loading03Icon } from "@hugeicons/core-free-icons";
 
 type AgentRecentChatsPreviewProps = {
   chats: { id: string; title: string; updatedAt: Date }[];

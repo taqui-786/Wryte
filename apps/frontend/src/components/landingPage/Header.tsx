@@ -20,17 +20,21 @@ function Header() {
     >
       <div className="flex gap-2 items-center justify-center">
         <Image
-            src={Logo}
-            alt="logo"
-            width={120}
-            height={36}
-            className="h-10 w-auto object-contain"
-            style={{ mixBlendMode: "multiply" }}
-          />
+          src={Logo}
+          alt="logo"
+          width={120}
+          height={36}
+          className="h-10 w-auto object-contain"
+          style={{ mixBlendMode: "multiply" }}
+        />
       </div>
       <div className="flex w-fit justify-center items-center gap-6 text-sm font-medium">
         <Link href={"/"}>Features</Link>
-        <a href={"https://x.com/md_taqui_imam"} target="_blank" rel="noreferrer">
+        <a
+          href={"https://x.com/md_taqui_imam"}
+          target="_blank"
+          rel="noreferrer"
+        >
           Twitter
         </a>
         <a

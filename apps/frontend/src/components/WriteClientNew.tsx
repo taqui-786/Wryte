@@ -60,7 +60,7 @@ const WriteClientNew: React.FC<Props> = ({ doc }) => {
     editorRef.current?.applyAIChanges(changes);
     // Also sync the value state for save/send scenarios
     const newMd = editorRef.current?.getMarkdownAfterAIChanges(changes);
-    if (newMd) setValue(newMd);
+    if (newMd !== null && newMd !== undefined) setValue(newMd);
   };
 
   const handleSave = useCallback(

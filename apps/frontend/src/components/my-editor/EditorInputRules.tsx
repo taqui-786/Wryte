@@ -151,7 +151,7 @@ export function orderedListRule(nodeType: NodeType) {
     /^(\d+)\.\s$/,
     nodeType,
     (match) => ({ order: +match[1] }),
-    (match, node) => node.childCount + node.attrs.order === +match[1]
+    (match, node) => node.childCount + node.attrs.order === +match[1],
   );
 }
 
@@ -176,7 +176,7 @@ export function headingRule(nodeType: NodeType, maxLevel: number) {
   return textblockTypeInputRule(
     new RegExp("^(#{1," + maxLevel + "})\\s$"),
     nodeType,
-    (match) => ({ level: match[1].length })
+    (match) => ({ level: match[1].length }),
   );
 }
 
@@ -189,12 +189,12 @@ export function boldRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -206,12 +206,12 @@ export function boldRuleUnderscore(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -223,12 +223,12 @@ export function italicRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -240,12 +240,12 @@ export function italicRuleUnderscore(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -257,12 +257,12 @@ export function underlineRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -274,12 +274,12 @@ export function strikethroughRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -291,12 +291,12 @@ export function inlineCodeRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const mark = markType.create();
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -308,13 +308,13 @@ export function linkRule(markType: MarkType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const text = match[1];
       const url = match[2];
       const mark = markType.create({ href: url });
       return state.tr.replaceWith(start, end, state.schema.text(text, [mark]));
-    }
+    },
   );
 }
 
@@ -331,7 +331,7 @@ export function imageRule(nodeType: NodeType) {
       state: EditorState,
       match: RegExpMatchArray,
       start: number,
-      end: number
+      end: number,
     ): Transaction | null => {
       const tr = state.tr;
       const alt = match[1];
@@ -339,7 +339,7 @@ export function imageRule(nodeType: NodeType) {
       const node = nodeType.create({ src, alt });
       tr.replaceWith(start, end, node);
       return tr;
-    }
+    },
   );
 }
 

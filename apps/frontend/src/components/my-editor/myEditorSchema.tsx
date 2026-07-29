@@ -1,14 +1,16 @@
-import {Schema, NodeSpec, MarkSpec, DOMOutputSpec} from "prosemirror-model"
+import { Schema, NodeSpec, MarkSpec, DOMOutputSpec } from "prosemirror-model";
 
-const pDOM: DOMOutputSpec = ["p", 0], blockquoteDOM: DOMOutputSpec = ["blockquote", 0],
-      hrDOM: DOMOutputSpec = ["hr"], preDOM: DOMOutputSpec = ["pre", ["code", 0]],
-      brDOM: DOMOutputSpec = ["br"]
+const pDOM: DOMOutputSpec = ["p", 0],
+  blockquoteDOM: DOMOutputSpec = ["blockquote", 0],
+  hrDOM: DOMOutputSpec = ["hr"],
+  preDOM: DOMOutputSpec = ["pre", ["code", 0]],
+  brDOM: DOMOutputSpec = ["br"];
 
 /// [Specs](#model.NodeSpec) for the nodes defined in this schema.
 export const nodes = {
   /// NodeSpec The top level document node.
   doc: {
-    content: "block+"
+    content: "block+",
   } as NodeSpec,
 
   /// A plain paragraph textblock. Represented in the DOM
@@ -16,8 +18,10 @@ export const nodes = {
   paragraph: {
     content: "inline*",
     group: "block",
-    parseDOM: [{tag: "p"}],
-    toDOM() { return pDOM }
+    parseDOM: [{ tag: "p" }],
+    toDOM() {
+      return pDOM;
+    },
   } as NodeSpec,
 
   /// A blockquote (`<blockquote>`) wrapping one or more blocks.
@@ -25,30 +29,37 @@ export const nodes = {
     content: "block+",
     group: "block",
     defining: true,
-    parseDOM: [{tag: "blockquote"}],
-    toDOM() { return blockquoteDOM }
+    parseDOM: [{ tag: "blockquote" }],
+    toDOM() {
+      return blockquoteDOM;
+    },
   } as NodeSpec,
 
   /// A horizontal rule (`<hr>`).
   horizontal_rule: {
     group: "block",
-    parseDOM: [{tag: "hr"}],
-    toDOM() { return hrDOM }
+    parseDOM: [{ tag: "hr" }],
+    toDOM() {
+      return hrDOM;
+    },
   } as NodeSpec,
 
   /// A heading textblock, with a `level` attribute that
   /// should hold the number 1 to 6. Parsed and serialized as `<h1>` to
   /// `<h6>` elements.
   heading: {
-    attrs: {level: {default: 1, validate: "number"}},
+    attrs: { level: { default: 1, validate: "number" } },
     content: "inline*",
     group: "block",
     defining: true,
-    parseDOM: [{tag: "h1", attrs: {level: 1}},
-               {tag: "h2", attrs: {level: 2}},
-               {tag: "h3", attrs: {level: 3}},
-            ],
-    toDOM(node) { return ["h" + node.attrs.level, 0] }
+    parseDOM: [
+      { tag: "h1", attrs: { level: 1 } },
+      { tag: "h2", attrs: { level: 2 } },
+      { tag: "h3", attrs: { level: 3 } },
+    ],
+    toDOM(node) {
+      return ["h" + node.attrs.level, 0];
+    },
   } as NodeSpec,
 
   /// A code listing. Disallows marks or non-text inline
@@ -60,13 +71,15 @@ export const nodes = {
     group: "block",
     code: true,
     defining: true,
-    parseDOM: [{tag: "pre", preserveWhitespace: "full"}],
-    toDOM() { return preDOM }
+    parseDOM: [{ tag: "pre", preserveWhitespace: "full" }],
+    toDOM() {
+      return preDOM;
+    },
   } as NodeSpec,
 
   /// The text node.
   text: {
-    group: "inline"
+    group: "inline",
   } as NodeSpec,
 
   /// An inline image (`<img>`) node. Supports `src`,
@@ -75,20 +88,28 @@ export const nodes = {
   image: {
     inline: true,
     attrs: {
-      src: {validate: "string"},
-      alt: {default: null, validate: "string|null"},
-      title: {default: null, validate: "string|null"}
+      src: { validate: "string" },
+      alt: { default: null, validate: "string|null" },
+      title: { default: null, validate: "string|null" },
     },
     group: "inline",
     draggable: true,
-    parseDOM: [{tag: "img[src]", getAttrs(dom: HTMLElement) {
-      return {
-        src: dom.getAttribute("src"),
-        title: dom.getAttribute("title"),
-        alt: dom.getAttribute("alt")
-      }
-    }}],
-    toDOM(node) { let {src, alt, title} = node.attrs; return ["img", {src, alt, title}] }
+    parseDOM: [
+      {
+        tag: "img[src]",
+        getAttrs(dom: HTMLElement) {
+          return {
+            src: dom.getAttribute("src"),
+            title: dom.getAttribute("title"),
+            alt: dom.getAttribute("alt"),
+          };
+        },
+      },
+    ],
+    toDOM(node) {
+      let { src, alt, title } = node.attrs;
+      return ["img", { src, alt, title }];
+    },
   } as NodeSpec,
 
   /// A hard line break, represented in the DOM as `<br>`.
@@ -96,12 +117,18 @@ export const nodes = {
     inline: true,
     group: "inline",
     selectable: false,
-    parseDOM: [{tag: "br"}],
-    toDOM() { return brDOM }
-  } as NodeSpec
-}
+    parseDOM: [{ tag: "br" }],
+    toDOM() {
+      return brDOM;
+    },
+  } as NodeSpec,
+};
 
-const emDOM: DOMOutputSpec = ["em", 0], strongDOM: DOMOutputSpec = ["strong", 0], codeDOM: DOMOutputSpec = ["code", 0], underlineDOM: DOMOutputSpec = ["u", 0], strikeDOM: DOMOutputSpec = ["s", 0]
+const emDOM: DOMOutputSpec = ["em", 0],
+  strongDOM: DOMOutputSpec = ["strong", 0],
+  codeDOM: DOMOutputSpec = ["code", 0],
+  underlineDOM: DOMOutputSpec = ["u", 0],
+  strikeDOM: DOMOutputSpec = ["s", 0];
 
 /// [Specs](#model.MarkSpec) for the marks in the schema.
 export const marks = {
@@ -110,73 +137,109 @@ export const marks = {
   /// element.
   link: {
     attrs: {
-      href: {validate: "string"},
-      title: {default: null, validate: "string|null"}
+      href: { validate: "string" },
+      title: { default: null, validate: "string|null" },
     },
     inclusive: false,
-    parseDOM: [{tag: "a[href]", getAttrs(dom: HTMLElement) {
-      return {href: dom.getAttribute("href"), title: dom.getAttribute("title")}
-    }}],
-    toDOM(node) { let {href, title} = node.attrs; return ["a", {href, title, class:"prosemirror-link"}, 0] }
+    parseDOM: [
+      {
+        tag: "a[href]",
+        getAttrs(dom: HTMLElement) {
+          return {
+            href: dom.getAttribute("href"),
+            title: dom.getAttribute("title"),
+          };
+        },
+      },
+    ],
+    toDOM(node) {
+      let { href, title } = node.attrs;
+      return ["a", { href, title, class: "prosemirror-link" }, 0];
+    },
   } as MarkSpec,
 
   /// An emphasis mark. Rendered as an `<em>` element. Has parse rules
   /// that also match `<i>` and `font-style: italic`.
   em: {
     parseDOM: [
-      {tag: "i"}, {tag: "em"},
-      {style: "font-style=italic"},
-      {style: "font-style=normal", clearMark: m => m.type.name === "em"}
+      { tag: "i" },
+      { tag: "em" },
+      { style: "font-style=italic" },
+      { style: "font-style=normal", clearMark: (m) => m.type.name === "em" },
     ],
-    toDOM() { return emDOM }
+    toDOM() {
+      return emDOM;
+    },
   } as MarkSpec,
 
   /// A strong mark. Rendered as `<strong>`, parse rules also match
   /// `<b>` and `font-weight: bold`.
   strong: {
     parseDOM: [
-      {tag: "strong"},
+      { tag: "strong" },
       // This works around a Google Docs misbehavior where
       // pasted content will be inexplicably wrapped in `<b>`
       // tags with a font-weight normal.
-      {tag: "b", getAttrs: (node: HTMLElement) => node.style.fontWeight !== "normal" && null},
-      {style: "font-weight=400", clearMark: m => m.type.name === "strong"},
-      {style: "font-weight", getAttrs: (value: string) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null},
+      {
+        tag: "b",
+        getAttrs: (node: HTMLElement) =>
+          node.style.fontWeight !== "normal" && null,
+      },
+      { style: "font-weight=400", clearMark: (m) => m.type.name === "strong" },
+      {
+        style: "font-weight",
+        getAttrs: (value: string) =>
+          /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null,
+      },
     ],
-    toDOM() { return strongDOM }
+    toDOM() {
+      return strongDOM;
+    },
   } as MarkSpec,
 
   /// Code font mark. Represented as a `<code>` element.
   code: {
     code: true,
-    parseDOM: [{tag: "code"}],
-    toDOM() { return codeDOM }
+    parseDOM: [{ tag: "code" }],
+    toDOM() {
+      return codeDOM;
+    },
   } as MarkSpec,
 
   /// An underline mark. Rendered as a `<u>` element. Has parse rules
   /// that also match `text-decoration: underline`.
   underline: {
     parseDOM: [
-      {tag: "u"},
-      {style: "text-decoration=underline"},
-      {style: "text-decoration=underline line-through", clearMark: m => m.type.name === "underline"}
+      { tag: "u" },
+      { style: "text-decoration=underline" },
+      {
+        style: "text-decoration=underline line-through",
+        clearMark: (m) => m.type.name === "underline",
+      },
     ],
-    toDOM() { return underlineDOM }
+    toDOM() {
+      return underlineDOM;
+    },
   } as MarkSpec,
 
   /// A strike-through mark. Rendered as a `<s>` element. Has parse rules
   /// that also match `<strike>`, `<del>`, and `text-decoration: line-through`.
   strike: {
     parseDOM: [
-      {tag: "s"},
-      {tag: "strike"},
-      {tag: "del"},
-      {style: "text-decoration=line-through"},
-      {style: "text-decoration=underline line-through", clearMark: m => m.type.name === "strike"}
+      { tag: "s" },
+      { tag: "strike" },
+      { tag: "del" },
+      { style: "text-decoration=line-through" },
+      {
+        style: "text-decoration=underline line-through",
+        clearMark: (m) => m.type.name === "strike",
+      },
     ],
-    toDOM() { return strikeDOM }
-  } as MarkSpec
-}
+    toDOM() {
+      return strikeDOM;
+    },
+  } as MarkSpec,
+};
 
 /// This schema roughly corresponds to the document schema used by
 /// [CommonMark](http://commonmark.org/), minus the list elements,
@@ -185,4 +248,4 @@ export const marks = {
 ///
 /// To reuse elements from this schema, extend or read from its
 /// `spec.nodes` and `spec.marks` [properties](#model.Schema.spec).
-export const schema = new Schema({nodes, marks})
+export const schema = new Schema({ nodes, marks });
