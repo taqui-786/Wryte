@@ -28,9 +28,9 @@ async def my_agent(
             continue
         message_chunk, metadata = chunk["data"]
         # print("-----CHUNK-----", chunk["data"])
-        # print("MESSAGE CHUNK:", message_chunk)
+        print("MESSAGE CHUNK:", message_chunk)
         # print("METADATA:", metadata)
-        if metadata.get("langgraph_node") in ["memory_save"]:
+        if metadata.get("langgraph_node") in ["memory_save", "need_plan_router"]:
             continue
         if message_chunk:
             yield {

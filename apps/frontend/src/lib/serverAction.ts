@@ -149,12 +149,25 @@ export const saveAgentMessages = async (
     console.log(msgs);
 
     const work = await db.insert(messages).values(
-      msgs.map((msg, index) => ({
-        threadId: thread_id,
-        role: msg.type,
-        index,
-        data: msg.data,
-      })),
+      msgs.map((msg, index) => {
+        // For AI messages: strip garbage partial tool calls and the transient isRunning flag
+        const data =
+          msg.type === "ai"
+            ? {
+                ...msg.data,
+                tool_calls: (msg.data.tool_calls ?? [])
+                  .filter((tc) => tc?.id && tc?.name)
+                  .map(({ isRunning: _r, ...tc }) => tc),
+              }
+            : msg.data;
+
+        return {
+          threadId: thread_id,
+          role: msg.type,
+          index,
+          data,
+        };
+      }),
     );
     if (work) {
       console.log("Agent messages saved successfully");

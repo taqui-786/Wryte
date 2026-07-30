@@ -1,8 +1,9 @@
 from typing import Annotated, Any
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
-from langgraph.prebuilt import InjectedState, ToolNode
+from langgraph.prebuilt import InjectedState,ToolNode
 from langgraph.types import Command
+from app.workflow.llm import llm, llm_lightweight
 from pydantic import BaseModel, ConfigDict, Field
 from tinyfish import TinyFish
 
@@ -34,7 +35,6 @@ def read_editor(
     return content
 
 
-from app.workflow.llm import llm_lightweight
 
 
 @tool
@@ -196,4 +196,5 @@ def _apply_changes_to_markdown(markdown: str, changes: list[EditorChange | dict]
 
 
 my_tools = [search_agent, scrape_url, read_editor, update_editor]
-tool_node = ToolNode(my_tools)
+llm_with_tools = llm.bind_tools(my_tools)
+tool_node = ToolNode(my_tools) 

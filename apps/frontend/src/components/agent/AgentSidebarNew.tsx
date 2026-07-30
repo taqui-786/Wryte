@@ -52,7 +52,7 @@ const AgentSidebarNew: React.FC<{
   const [threadTitle, setThreadTitle] = useState<string>("New Chat");
   const [threadId, setThreadId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const newMessageToSaveRef = useRef<AIMessageResponse>([]);
+  const latestMessagesRef = useRef<AIMessageResponse>([]);
   const [node,setNode] = useState<NodeType[]>(["chat_node"]);
   // My Queries -----------------
   const { mutate: saveAgentMessages, isPending: isSavingMessages } =
@@ -116,8 +116,9 @@ const AgentSidebarNew: React.FC<{
 
     const thread_id = activeThreadId ?? randThreadId;
 
+    const initialMsgs = [userMsg, assistantMsg] as AIMessageResponse;
+    latestMessagesRef.current = initialMsgs;
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    newMessageToSaveRef.current = [userMsg, assistantMsg];
 
     abortRef.current?.abort();
     const ab = new AbortController();
@@ -170,13 +171,18 @@ const AgentSidebarNew: React.FC<{
               }
             }
 
-            // Rest: update message UI
-            setMessages((prev) => updateLastAiMessage(prev, chunk));
+            // Rest: update message UI and keep ref in sync
+            setMessages((prev) => {
+              const next = updateLastAiMessage(prev, chunk);
+              // Mirror the last two messages (human + ai) into the ref so onDone saves final content
+              latestMessagesRef.current = next.slice(-2) as AIMessageResponse;
+              return next;
+            });
           },
           onDone: () => {
             setIsThinking(false);
             handleSaveMessages(
-              newMessageToSaveRef.current,
+              latestMessagesRef.current,
               newThreadId as string,
             );
           },
@@ -192,7 +198,7 @@ const AgentSidebarNew: React.FC<{
               setThreadTitle(data.title);
               setThreadId(data.id);
               newThreadId = data.id;
-              handleSaveMessages(newMessageToSaveRef.current, data.id);
+              handleSaveMessages(latestMessagesRef.current, data.id);
             },
           },
         );
@@ -262,17 +268,58 @@ const AgentSidebarNew: React.FC<{
             setThreadTitle(title);
             setActiveThreadId(id);
             setThreadId(id);
-            setMessages(
-              () =>
-                msgs.map((m) => ({
-                  type: m.role === "human" ? "human" : "ai",
-                  data: {
-                    ...(m.data as any),
-                    type: m.role === "human" ? "human" : "ai",
-                  },
-                  parts: [],
-                })) as AIMessageResponse,
-            );
+            setMessages(() => {
+              const sorted = [...msgs].sort((a, b) => a.index - b.index);
+              return sorted.map((m) => {
+                const rawData = m.data as any;
+                if (m.role === "human") {
+                  const content: string = rawData?.content ?? "";
+                  return {
+                    type: "human",
+                    data: {
+                      ...rawData,
+                      type: "human",
+                      additional_kwargs: rawData?.additional_kwargs ?? {},
+                      response_metadata: rawData?.response_metadata ?? {},
+                    },
+                    parts: [{ type: "text", text: content }],
+                  } as AIMessageResponse[number];
+                } else {
+                  const content: string = rawData?.content ?? "";
+                  // Filter out garbage partial tool calls saved mid-stream (null id or empty name)
+                  const validToolCalls: any[] = (rawData?.tool_calls ?? []).filter(
+                    (tc: any) => tc?.id && tc?.name,
+                  );
+                  const parts: any[] = [];
+                  const reasoning =
+                    rawData?.additional_kwargs?.reasoning_content ||
+                    rawData?.additional_kwargs?.reasoning;
+                  if (reasoning) {
+                    parts.push({ type: "reasoning", content: reasoning });
+                  }
+                  // Add tool calls to parts so MessageBubble renders them
+                  for (const tc of validToolCalls) {
+                    parts.push({ type: "tool_call", toolCall: { ...tc, isRunning: false } });
+                  }
+                  if (content) {
+                    parts.push({ type: "content", content });
+                  }
+                  return {
+                    type: "ai",
+                    data: {
+                      ...rawData,
+                      type: "ai",
+                      additional_kwargs: rawData?.additional_kwargs ?? {},
+                      response_metadata: rawData?.response_metadata ?? {},
+                      tool_calls: validToolCalls,
+                      invalid_tool_calls: rawData?.invalid_tool_calls ?? [],
+                      usage_metadata: rawData?.usage_metadata ?? null,
+                    },
+                    parts,
+                  } as AIMessageResponse[number];
+                }
+              });
+            });
             setViewHistory(false);
           }}
         />

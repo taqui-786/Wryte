@@ -97,7 +97,7 @@ export function MessageBubble({
 }) {
   const isUser = message.type === "human";
   const parts = message.parts ?? [];
-  const toolCalls = message.type === "ai" ? message.data.tool_calls : [];
+  const toolCalls = message.type === "ai" ? (message.data.tool_calls ?? []) : [];
 
   const reasoningText = message.data.additional_kwargs
     .reasoning_content as string;
