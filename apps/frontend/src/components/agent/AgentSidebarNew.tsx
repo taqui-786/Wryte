@@ -33,12 +33,19 @@ const AgentSidebarNew: React.FC<{
   docId: string;
   userId: string;
   editorValue: string;
-  onEditorValueChange: (value: string) => void;
-  onApplyAIChanges?: (changes: AIChange[]) => void;
+  onEditorAppend?: (value: string) => void;
+  onEditorReplace?: (value: string) => void;
   allThreads: (InferSelectModel<typeof thread> & {
     messages: InferSelectModel<typeof messages>[];
   })[];
-}> = ({ docId, userId, editorValue, onEditorValueChange, allThreads,onApplyAIChanges }) => {
+}> = ({
+  docId,
+  userId,
+  editorValue,
+  onEditorAppend,
+  onEditorReplace,
+  allThreads,
+}) => {
   const [viewHistory, setViewHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,7 +60,7 @@ const AgentSidebarNew: React.FC<{
   const [threadId, setThreadId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const latestMessagesRef = useRef<AIMessageResponse>([]);
-  const [node,setNode] = useState<NodeType[]>(["chat_node"]);
+  const [node, setNode] = useState<NodeType[]>(["chat_node"]);
   // My Queries -----------------
   const { mutate: saveAgentMessages, isPending: isSavingMessages } =
     useSaveAgentMessages();
@@ -137,21 +144,17 @@ const AgentSidebarNew: React.FC<{
         },
         {
           onChunk: (chunk) => {
-            // Handle targeted editor changes
             setNode((prev) => [...prev, chunk.node]);
+
+            // Handle edit_document tool result artifact (full updated document)
             if (
               chunk.node === "tools" &&
-              chunk.message.type === "AIMessageChunk"
+              chunk.message.type === "tool" &&
+              chunk.message.name === "edit_document"
             ) {
-              for (const tool of chunk.message.tool_calls ?? []) {
-                if (
-                  tool.name === "update_editor" &&
-                  tool.args?.changes &&
-                  Array.isArray(tool.args.changes) &&
-                  tool.args.changes.length > 0
-                ) {
-                  onApplyAIChanges?.(tool.args.changes as AIChange[]);
-                }
+              const updatedDoc = (chunk.message as any).artifact;
+              if (typeof updatedDoc === "string") {
+                onEditorReplace?.(updatedDoc);
               }
             }
 
@@ -167,7 +170,7 @@ const AgentSidebarNew: React.FC<{
                         .join("")
                     : "";
               if (text) {
-                onEditorValueChange(text);
+                onEditorAppend?.(text);
               }
             }
 
@@ -269,7 +272,7 @@ const AgentSidebarNew: React.FC<{
             setActiveThreadId(id);
             setThreadId(id);
             setMessages(() => {
-              const sorted = [...msgs].sort((a, b) => a.index - b.index);
+              const sorted = msgs.sort((a, b) => Number(a?.createdAt) - Number(b?.createdAt));
               return sorted.map((m) => {
                 const rawData = m.data as any;
                 if (m.role === "human") {
@@ -287,9 +290,9 @@ const AgentSidebarNew: React.FC<{
                 } else {
                   const content: string = rawData?.content ?? "";
                   // Filter out garbage partial tool calls saved mid-stream (null id or empty name)
-                  const validToolCalls: any[] = (rawData?.tool_calls ?? []).filter(
-                    (tc: any) => tc?.id && tc?.name,
-                  );
+                  const validToolCalls: any[] = (
+                    rawData?.tool_calls ?? []
+                  ).filter((tc: any) => tc?.id && tc?.name);
                   const parts: any[] = [];
                   const reasoning =
                     rawData?.additional_kwargs?.reasoning_content ||
@@ -299,13 +302,17 @@ const AgentSidebarNew: React.FC<{
                   }
                   // Add tool calls to parts so MessageBubble renders them
                   for (const tc of validToolCalls) {
-                    parts.push({ type: "tool_call", toolCall: { ...tc, isRunning: false } });
+                    parts.push({
+                      type: "tool_call",
+                      toolCall: { ...tc, isRunning: false },
+                    });
                   }
                   if (content) {
                     parts.push({ type: "content", content });
                   }
                   return {
                     type: "ai",
+                    loaded: true,
                     data: {
                       ...rawData,
                       type: "ai",

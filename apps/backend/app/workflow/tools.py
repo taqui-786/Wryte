@@ -94,18 +94,42 @@ async def scrape_url(url: str) -> str:
 
 
 
-class EditorChange(BaseModel):
-    line: int = Field(default=1, description="1-indexed block-level line number (ignored for clear/replace_all)")
-    type: str = Field(
-        description="replace=swap content at line, delete=remove line, insert=add new content AFTER line, clear=wipe entire editor, replace_all=overwrite whole document"
+from dataclasses import dataclass
+from typing import Literal
+
+class EditIntent(BaseModel):
+    operation: Literal[
+        "find_replace",
+        "replace_section",
+        "insert_after",
+        "insert_before",
+        "append_to_section",
+        "delete_section",
+        "replace_document",
+        "clear",
+    ] = Field(description="The edit operation to perform.")
+
+    target: str = Field(
+        default="",
+        description=(
+            "What to target. Meaning depends on operation:\n"
+            "- find_replace: the exact text snippet to find in the document\n"
+            "- replace_section/delete_section: heading text (without # prefix)\n"
+            "- insert_after/insert_before/append_to_section: heading text to anchor on\n"
+            "- replace_document/clear: leave empty"
+        ),
     )
-    content: str = Field(default="", description="New content (for replace/insert/replace_all). Empty string for delete/clear.")
+
+    content: str = Field(
+        default="",
+        description="The new/replacement markdown content. Omit for delete_section and clear.",
+    )
 
 
-class UpdateEditorInput(BaseModel):
+class EditDocumentInput(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    changes: list[EditorChange] = Field(
-        description="List of line-level changes, or single clear/replace_all change."
+    intents: list[EditIntent] = Field(
+        description="List of structured edit intents to apply to the document."
     )
     state: Annotated[dict[str, Any], InjectedState()] | None = Field(
         default=None,
@@ -113,88 +137,248 @@ class UpdateEditorInput(BaseModel):
     )
 
 
-@tool(args_schema=UpdateEditorInput)
-def update_editor(
-    changes: list[EditorChange],
+@dataclass
+class Block:
+    type: str  # "heading", "paragraph", "code_block", "blockquote", etc.
+    text: str
+    heading_level: int = 0
+    heading_text: str = ""
+
+
+def parse_blocks(markdown: str) -> list[Block]:
+    """Split markdown into blocks while keeping code fences intact."""
+    lines = markdown.split("\n")
+    blocks: list[Block] = []
+    current_lines: list[str] = []
+    in_code_fence = False
+
+    def flush_block():
+        if not current_lines:
+            return
+        block_text = "\n".join(current_lines).strip()
+        if not block_text:
+            current_lines.clear()
+            return
+
+        if block_text.startswith("```"):
+            blocks.append(Block(type="code_block", text=block_text))
+        elif block_text.startswith("#"):
+            first_line = block_text.split("\n")[0]
+            level = 0
+            for char in first_line:
+                if char == "#":
+                    level += 1
+                else:
+                    break
+            h_text = first_line[level:].strip()
+            blocks.append(
+                Block(
+                    type="heading",
+                    text=block_text,
+                    heading_level=level,
+                    heading_text=h_text,
+                )
+            )
+        elif block_text.startswith(">"):
+            blocks.append(Block(type="blockquote", text=block_text))
+        else:
+            blocks.append(Block(type="paragraph", text=block_text))
+        current_lines.clear()
+
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code_fence = not in_code_fence
+            current_lines.append(line)
+            if not in_code_fence:
+                flush_block()
+            continue
+
+        if in_code_fence:
+            current_lines.append(line)
+            continue
+
+        if not line.strip():
+            flush_block()
+        else:
+            current_lines.append(line)
+
+    flush_block()
+    return blocks
+
+
+def get_available_headings(blocks: list[Block]) -> list[str]:
+    return [b.heading_text for b in blocks if b.type == "heading" and b.heading_text]
+
+
+def resolve_and_apply(
+    markdown: str, intents: list[EditIntent]
+) -> tuple[str, list[str], list[str]]:
+    applied: list[str] = []
+    errors: list[str] = []
+    current_md = markdown
+
+    for idx, intent in enumerate(intents):
+        op = intent.operation
+        target = intent.target.strip()
+        content = intent.content.strip()
+
+        if op == "clear":
+            current_md = ""
+            applied.append(f"Intent {idx+1}: cleared editor")
+            continue
+
+        if op == "replace_document":
+            current_md = content
+            applied.append(f"Intent {idx+1}: replaced full document")
+            continue
+
+        if op == "find_replace":
+            if not target:
+                errors.append(f"Intent {idx+1}: 'target' string is required for find_replace.")
+                continue
+            if target not in current_md:
+                # Try case-insensitive search for better feedback
+                low_md = current_md.lower()
+                low_target = target.lower()
+                if low_target in low_md:
+                    # Find exact original casing
+                    start_idx = low_md.find(low_target)
+                    matched_orig = current_md[start_idx : start_idx + len(target)]
+                    current_md = current_md.replace(matched_orig, content, 1)
+                    applied.append(f"Intent {idx+1}: replaced '{matched_orig}' with new text")
+                else:
+                    errors.append(
+                        f"Intent {idx+1}: target text snippet '{target[:40]}...' not found in document."
+                    )
+                continue
+            count = current_md.count(target)
+            if count > 1:
+                errors.append(
+                    f"Intent {idx+1}: target text snippet '{target[:30]}...' is ambiguous ({count} matches). Provide more surrounding context."
+                )
+                continue
+
+            current_md = current_md.replace(target, content, 1)
+            applied.append(f"Intent {idx+1}: find_replace succeeded for '{target[:30]}'")
+            continue
+
+        # Section operations
+        blocks = parse_blocks(current_md)
+        avail_headings = get_available_headings(blocks)
+
+        if not target:
+            errors.append(f"Intent {idx+1}: 'target' heading text is required for operation '{op}'.")
+            continue
+
+        # Find matching heading block
+        target_h_idx = -1
+        for i, b in enumerate(blocks):
+            if b.type == "heading" and (
+                b.heading_text.lower() == target.lower()
+                or b.heading_text.lower().startswith(target.lower())
+            ):
+                target_h_idx = i
+                break
+
+        if target_h_idx == -1:
+            errors.append(
+                f"Intent {idx+1}: Heading target '{target}' not found. Available headings: {avail_headings or 'None'}"
+            )
+            continue
+
+        target_block = blocks[target_h_idx]
+        target_level = target_block.heading_level
+
+        # Determine section end (next heading of same or higher level)
+        section_end_idx = len(blocks)
+        for i in range(target_h_idx + 1, len(blocks)):
+            b = blocks[i]
+            if b.type == "heading" and b.heading_level <= target_level:
+                section_end_idx = i
+                break
+
+        if op == "delete_section":
+            new_blocks = blocks[:target_h_idx] + blocks[section_end_idx:]
+            current_md = "\n\n".join(b.text for b in new_blocks)
+            applied.append(f"Intent {idx+1}: deleted section '{target_block.heading_text}'")
+
+        elif op == "replace_section":
+            replacement_blocks = parse_blocks(content)
+            new_blocks = (
+                blocks[:target_h_idx] + replacement_blocks + blocks[section_end_idx:]
+            )
+            current_md = "\n\n".join(b.text for b in new_blocks)
+            applied.append(f"Intent {idx+1}: replaced section '{target_block.heading_text}'")
+
+        elif op == "insert_after":
+            new_blocks = (
+                blocks[:section_end_idx]
+                + parse_blocks(content)
+                + blocks[section_end_idx:]
+            )
+            current_md = "\n\n".join(b.text for b in new_blocks)
+            applied.append(f"Intent {idx+1}: inserted content after section '{target_block.heading_text}'")
+
+        elif op == "insert_before":
+            new_blocks = (
+                blocks[:target_h_idx]
+                + parse_blocks(content)
+                + blocks[target_h_idx:]
+            )
+            current_md = "\n\n".join(b.text for b in new_blocks)
+            applied.append(f"Intent {idx+1}: inserted content before section '{target_block.heading_text}'")
+
+        elif op == "append_to_section":
+            new_blocks = (
+                blocks[:section_end_idx]
+                + parse_blocks(content)
+                + blocks[section_end_idx:]
+            )
+            current_md = "\n\n".join(b.text for b in new_blocks)
+            applied.append(f"Intent {idx+1}: appended to section '{target_block.heading_text}'")
+
+    return current_md, applied, errors
+
+
+@tool(args_schema=EditDocumentInput)
+def edit_document(
+    intents: list[EditIntent],
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
     state: Annotated[dict[str, Any], InjectedState()] | None = None,
 ) -> Command:
-    """Apply targeted changes or full document operations to the editor content.
+    """Apply targeted, token-efficient edits to the editor document.
 
     RULES:
-    - To clear/wipe the editor: use `changes: [{"type": "clear", "line": 1, "content": ""}]`.
-    - To replace the whole document: use `changes: [{"type": "replace_all", "line": 1, "content": "..."}]`.
-    - To edit specific lines: call `read_editor` FIRST to get line numbers, then return 1-3 targeted `replace`/`insert`/`delete` changes.
+    - Always call `read_editor` first to see the current content and headings.
+    - Use `find_replace` for small text/word/phrase fixes (target=exact text snippet).
+    - Use `replace_section`, `insert_after`, `insert_before`, `delete_section` for section-level changes (target=heading text).
+    - Use `replace_document` or `clear` ONLY when replacing or clearing the entire editor.
     """
     current = (state or {}).get("editor_content", "") or ""
-    new_content = _apply_changes_to_markdown(current, changes)
+    new_content, applied, errors = resolve_and_apply(current, intents)
+
+    summary_parts = []
+    if applied:
+        summary_parts.append(f"Applied: {'; '.join(applied)}")
+    if errors:
+        summary_parts.append(f"Errors: {'; '.join(errors)}")
+
+    message_str = " ".join(summary_parts) or "No changes applied."
 
     return Command(
         update={
             "editor_content": new_content,
             "messages": [
                 ToolMessage(
-                    f"Applied {len(changes)} change(s) to editor.",
+                    content=message_str,
                     tool_call_id=tool_call_id,
+                    artifact=new_content,
                 )
             ],
         }
     )
 
 
-def _apply_changes_to_markdown(markdown: str, changes: list[EditorChange | dict]) -> str:
-    normalized: list[EditorChange] = []
-    for c in changes:
-        if isinstance(c, dict):
-            normalized.append(
-                EditorChange(
-                    line=c.get("line", 1),
-                    type=c.get("type", "replace"),
-                    content=c.get("content", ""),
-                )
-            )
-        else:
-            normalized.append(c)
-
-    # Check for clear or replace_all operations
-    for c in normalized:
-        if c.type == "clear":
-            return ""
-        if c.type == "replace_all":
-            return c.content
-
-    if not markdown.strip():
-        inserts = [c for c in normalized if c.type in ["insert", "replace"]]
-        return "\n\n".join(c.content for c in inserts)
-
-    blocks = markdown.split("\n\n")
-    while blocks and blocks[-1] == "":
-        blocks.pop()
-
-    deletes_replaces = [c for c in normalized if c.type not in ["insert", "clear", "replace_all"]]
-    inserts = [c for c in normalized if c.type == "insert"]
-
-    for c in sorted(deletes_replaces, key=lambda x: -x.line):
-        idx = c.line - 1
-        if idx < 0 or idx >= len(blocks):
-            continue
-        if c.type == "delete":
-            blocks.pop(idx)
-        elif c.type == "replace":
-            blocks[idx] = c.content
-
-    for c in sorted(inserts, key=lambda x: x.line):
-        idx = c.line
-        if idx < 0:
-            blocks.insert(0, c.content)
-        elif idx >= len(blocks):
-            blocks.append(c.content)
-        else:
-            blocks.insert(idx, c.content)
-
-    return "\n\n".join(blocks)
-
-
-my_tools = [search_agent, scrape_url, read_editor, update_editor]
+my_tools = [search_agent, scrape_url, read_editor, edit_document]
 llm_with_tools = llm.bind_tools(my_tools)
 tool_node = ToolNode(my_tools) 

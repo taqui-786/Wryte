@@ -29,7 +29,7 @@ export interface HumanMessage extends BaseMessage {
 
 export interface AIMessage extends BaseMessage {
   type: "ai";
-
+  loaded?: boolean;
   data: BaseMessage["data"] & {
     type: "ai";
 

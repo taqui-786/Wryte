@@ -53,14 +53,11 @@ const WriteClientNew: React.FC<Props> = ({ doc }) => {
   const [isAIApplying, setIsAIApplying] = useState(false);
   const editorRef = useRef<any>(null);
   const [value, setValue] = useState(doc.content || "");
-  const handleChange = (content: string) => {
+  const handleAppendContent = (content: string) => {
     setValue((prev) => prev + content);
   };
-  const handleApplyChanges = (changes: AIChange[]) => {
-    editorRef.current?.applyAIChanges(changes);
-    // Also sync the value state for save/send scenarios
-    const newMd = editorRef.current?.getMarkdownAfterAIChanges(changes);
-    if (newMd !== null && newMd !== undefined) setValue(newMd);
+  const handleReplaceContent = (content: string) => {
+    setValue(content);
   };
 
   const handleSave = useCallback(
@@ -140,8 +137,8 @@ const WriteClientNew: React.FC<Props> = ({ doc }) => {
           docId={doc.id}
           userId={doc.userId}
           editorValue={value}
-          onEditorValueChange={handleChange}
-          onApplyAIChanges={handleApplyChanges}
+          onEditorAppend={handleAppendContent}
+          onEditorReplace={handleReplaceContent}
           allThreads={doc.threads || []}
         />
       </ResizablePanel>

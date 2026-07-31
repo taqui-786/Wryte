@@ -1,6 +1,6 @@
 "use client";
 
-import { ToolsIcon } from "@hugeicons/core-free-icons";
+import { Loader, LoaderCircle, ToolsIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Reasoning,
@@ -20,6 +20,7 @@ import {
   StreamingPart,
   NodeType,
 } from "./types";
+import { cn } from "@/lib/utils";
 interface PlanStep {
   step: number;
   action: string;
@@ -35,11 +36,15 @@ interface StepCompleted {
 }
 function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
   console.log({ toolCall });
+  if(!toolCall.name) return <></>
 
   return (
     <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm my-2">
       <div className="flex items-center gap-2">
-        <HugeiconsIcon icon={ToolsIcon} className="size-4" />
+        <HugeiconsIcon
+          icon={toolCall?.isRunning ? LoaderCircle: ToolsIcon}
+          className={cn("size-4", toolCall?.isRunning && "animate-spin text-primary")}
+        />
         <span className="font-medium">Called {toolCall.name}</span>
 
         <span className="text-xs text-muted-foreground">
@@ -97,7 +102,9 @@ export function MessageBubble({
 }) {
   const isUser = message.type === "human";
   const parts = message.parts ?? [];
-  const toolCalls = message.type === "ai" ? (message.data.tool_calls ?? []) : [];
+  if (!isUser) console.log({ message });
+  const toolCalls =
+    message.type === "ai" ? (message.data.tool_calls ?? []) : [];
 
   const reasoningText = message.data.additional_kwargs
     .reasoning_content as string;
@@ -226,7 +233,7 @@ export function MessageBubble({
             <div key={i} className="whitespace-pre-wrap">
               <StreamingMessage
                 markdown
-                animate={message.type === "ai"}
+                animate={message.type === "ai" && message?.loaded !== true}
                 text={clean}
               />
             </div>
@@ -277,12 +284,14 @@ export function MessageBubble({
                 <div className="flex gap-3 text-[11px] opacity-80">
                   {usage.input_token_details?.cache_read !== undefined && (
                     <span>
-                      Cache read: <strong>{usage.input_token_details.cache_read}</strong>
+                      Cache read:{" "}
+                      <strong>{usage.input_token_details.cache_read}</strong>
                     </span>
                   )}
                   {usage.output_token_details?.reasoning !== undefined && (
                     <span>
-                      Reasoning: <strong>{usage.output_token_details.reasoning}</strong>
+                      Reasoning:{" "}
+                      <strong>{usage.output_token_details.reasoning}</strong>
                     </span>
                   )}
                 </div>

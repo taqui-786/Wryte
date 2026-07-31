@@ -30,7 +30,7 @@ export const useStream = () => {
   useEffect(() => {
     if (isAnimatingRef.current) return;
 
-    const typewriterSpeed = 5;
+    const typewriterSpeed = 15;
     const fullText = parts.join("");
 
     if (streamIndexRef.current >= fullText.length) {
