@@ -3,6 +3,7 @@
 import {
   Brain01FreeIcons,
   Clock04Icon,
+  LoaderCircle,
   Loading02Icon,
   Loading03FreeIcons,
   Menu01Icon,
@@ -394,7 +395,7 @@ const AgentSidebarNew: React.FC<{
                 type="submit"
                 disabled={isThinking || !inputValue.trim()}
               >
-                <HugeiconsIcon icon={SentIcon} />
+                <HugeiconsIcon icon={isThinking? LoaderCircle :SentIcon} className={cn(isThinking && "animate-spin")} />
               </Button>
             </form>
           </div>

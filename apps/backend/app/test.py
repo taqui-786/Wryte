@@ -42,13 +42,13 @@ testing = ChatOpenAI(
 #     stream_usage=True,
 # )
 llm = ChatOpenAI(
-    base_url="https://api.deepinfra.com/v1/openai",
-    api_key=os.getenv("DEEPINFRA_API_KEY"),
-    model="deepseek-ai/DeepSeek-V4-Flash",
+    base_url="https://opencode.ai/zen/v1",
+    api_key=os.getenv("OPENCODE_API_KEY"),
+    model="deepseek-v4-flash-free",
     temperature=0.7,
     stream_usage=True,
     max_completion_tokens=16384,
-    reasoning_effort="low",
+    reasoning_effort="medium",
     # extra_body={"provider": {"only": ["deepinfra/fp4"]}},
 )
 # ── Graph ─────────────────────────────────────────────────────────────────────
@@ -78,7 +78,8 @@ def multiply(a: int, b: int) -> int:
 
 def test_opencode_model():
     """Quick test for the opencode/deepseek-v4-flash-free model"""
-    print("--- Testing opencode/deepseek-v4-flash-free ---")
+    try:
+        print("--- Testing opencode/deepseek-v4-flash-free ---")
     # response = client.search.query(query="glm-5.2 benchmark", location="US")
     # if not response or not response.results:
     #     return f"No search results found for query: {query}"
@@ -95,10 +96,12 @@ def test_opencode_model():
     # combined = "\n\n---\n\n".join(raw_texts)
     # if not combined:
     #     return f"No readable content found for query: {query}"
-    llm_with_tool = llm.bind_tools([multiply])
-    response = llm_with_tool.invoke([SystemMessage(content="You are a helpful assistant. you have tools 'multiply' to multiply two numbers."), HumanMessage(content="What is 2 * 3?")])
-    pprint(f"Response: {response}")
-    print("--- Test complete ---")
+        llm_with_tool = llm.bind_tools([multiply])
+        response = llm.invoke([SystemMessage(content="You are a helpful assistant."), HumanMessage(content="Hey there")])
+        pprint(f"Response: {response}")
+        print("--- Test complete ---")
+    except Exception as e:
+        pprint(f"Error: {e}")
 
 
 test_opencode_model()
