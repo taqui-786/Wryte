@@ -13,7 +13,7 @@ llm_lightweight = ChatNVIDIA(
 # DeepSeek V4 models for primary chat, planning, and execution
 llm = ChatOpenAI(
     base_url="https://api.deepinfra.com/v1/openai",
-    api_key=settings.OPENROUTER_API_KEY,
+    api_key=settings.DEEPINFRA_API_KEY,
     model="deepseek-ai/DeepSeek-V4-Flash",
     temperature=0.7,
     stream_usage=True,
@@ -23,7 +23,7 @@ llm = ChatOpenAI(
 
 llm_powerfull = ChatOpenAI(
     base_url="https://api.deepinfra.com/v1/openai",
-    api_key=settings.OPENROUTER_API_KEY,
+    api_key=settings.DEEPINFRA_API_KEY,
     model="deepseek-ai/DeepSeek-V4-Flash",
     temperature=0.3,
     stream_usage=True,
@@ -32,7 +32,7 @@ llm_powerfull = ChatOpenAI(
 
 llm_secondary = ChatOpenAI(
     base_url="https://api.deepinfra.com/v1/openai",
-    api_key=settings.OPENROUTER_API_KEY,
+    api_key=settings.DEEPINFRA_API_KEY,
     model="deepseek-ai/DeepSeek-V4-Flash",
     temperature=0,
     stream_usage=False,
@@ -41,7 +41,7 @@ llm_secondary = ChatOpenAI(
 
 llm_structure = ChatOpenAI(
     base_url="https://api.deepinfra.com/v1/openai",
-    api_key=settings.OPENROUTER_API_KEY,
+    api_key=settings.DEEPINFRA_API_KEY,
     model="deepseek-ai/DeepSeek-V4-Flash",
     stream_usage=False,
     temperature=0,

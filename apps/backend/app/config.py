@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
     NVIDIA_API_KEY: str 
-    OPENROUTER_API_KEY: str 
+    DEEPINFRA_API_KEY: str 
     TINYFISH_API_KEY: str
 
     CORS_ORIGINS: list[str]=[

@@ -43,7 +43,7 @@ testing = ChatOpenAI(
 # )
 llm = ChatOpenAI(
     base_url="https://api.deepinfra.com/v1/openai",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
+    api_key=os.getenv("DEEPINFRA_API_KEY"),
     model="deepseek-ai/DeepSeek-V4-Flash",
     temperature=0.7,
     stream_usage=True,
