@@ -56,13 +56,13 @@ llm_secondary = ChatOpenAI(
 
 llm_structure = ChatOpenAI(
     # this is my Paid one
-    # base_url="https://api.deepinfra.com/v1/openai",
-    # api_key=settings.DEEPINFRA_API_KEY,
-    # model="deepseek-ai/DeepSeek-V4-Flash",
+    base_url="https://api.deepinfra.com/v1/openai",
+    api_key=settings.DEEPINFRA_API_KEY,
+    model="deepseek-ai/DeepSeek-V4-Flash",
     # This is Free One
-    base_url="https://opencode.ai/zen/v1",
-    api_key=settings.OPENCODE_API_KEY,
-    model="deepseek-v4-flash-free", 
+    # base_url="https://opencode.ai/zen/v1",
+    # api_key=settings.OPENCODE_API_KEY,
+    # model="deepseek-v4-flash-free", 
     stream_usage=False,
     temperature=0,
     max_completion_tokens=8192,

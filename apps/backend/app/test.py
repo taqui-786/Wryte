@@ -104,4 +104,4 @@ def test_opencode_model():
         pprint(f"Error: {e}")
 
 
-test_opencode_model()
+# test_opencode_model()
