@@ -105,9 +105,19 @@ export const updateUserDocs = async (payload: {
 };
 
 export const deleteUserDocs = async (
-  _docId: string,
-): Promise<StubDoc | undefined> => {
-  return undefined;
+  docId: string,
+): Promise<InferSelectModel<typeof docs>> => {
+  const session = await getServerUserSession();
+  if (!session?.user.id) throw new Error("Unauthorized");
+
+  const updated = await db
+    .update(docs)
+    .set({ isDeleted: true, updatedAt: new Date() })
+    .where(and(eq(docs.id, docId), eq(docs.userId, session.user.id)))
+    .returning();
+
+  if (!updated.length) throw new Error("Doc not found");
+  return updated[0];
 };
 
 // ---------------------------------------------------------------------------
@@ -265,7 +275,7 @@ export const getAllDocs = async (): Promise<
   const all_docs = await db
     .select()
     .from(docs)
-    .where(eq(docs.userId, user_id.user.id));
+    .where(and(eq(docs.userId, user_id.user.id), eq(docs.isDeleted, false)));
   return all_docs;
 };
 export type DocWithThread = InferSelectModel<typeof docs> & {

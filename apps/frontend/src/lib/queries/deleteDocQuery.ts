@@ -1,11 +1,12 @@
-import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { deleteUserDocs } from "@/lib/serverAction";
 
 export const useDeleteDoc = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_docId: string) => {
-      // DB logic removed — no-op stub
+    mutationFn: async (docId: string) => {
+      return await deleteUserDocs(docId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users-docs"] });
