@@ -1,4 +1,4 @@
-from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings
+from langchain_nvidia_ai_endpoints import ChatNVIDIA, NVIDIAEmbeddings, NVIDIARerank
 from langchain_openai import ChatOpenAI
 
 from app.config import settings
@@ -73,5 +73,14 @@ embeddings = NVIDIAEmbeddings(
     model="nvidia/nv-embedqa-e5-v5",
     api_key=settings.NVIDIA_API_KEY,
     truncate="END",
+)
+
+# Reranks candidate memories against the latest user message to surface the
+# ones actually relevant, instead of dumping the most recent N into the prompt.
+reranker = NVIDIARerank(
+    model="nvidia/llama-3.2-nv-rerankqa-1b-v1",
+    api_key=settings.NVIDIA_API_KEY,
+    truncate="END",
+    top_n=5,
 )
 

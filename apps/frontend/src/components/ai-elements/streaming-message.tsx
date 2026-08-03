@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, memo, useCallback } from "react";
-import { Markdown } from "../ui/markdown";
+import { streamingMarkdownExtension } from "@tanstack/markdown/extensions/streaming";
+import { Markdown, MarkdownComponents } from "@tanstack/markdown/react";
 
 export const useStream = () => {
   const [parts, setParts] = useState<string[]>([]);
@@ -78,7 +79,28 @@ export const StreamingMessage = memo(
   }) => {
     const contentRef = useRef("");
     const { stream, addPart } = useStream();
+    const streamingExtensions = [streamingMarkdownExtension()];
+    const components = {
+  a(props) {
+    const hasProtocol = /^[a-z][a-z0-9+.-]*:/i.test(props.href || '')
+    const allowed =
+      !hasProtocol || /^(https?:|mailto:)/i.test(props.href || '')
+    const href = allowed ? props.href : undefined
+    const external = /^https?:\/\//i.test(href || '')
 
+    return (
+      <a
+        {...props}
+        href={href}
+        rel={external ? 'nofollow noopener noreferrer' : props.rel}
+        target={external ? '_blank' : props.target}
+      />
+    )
+  },
+  img({ alt }) {
+    return <span role="img">Image: {alt || 'No description'}</span>
+  },
+} satisfies MarkdownComponents
     useEffect(() => {
       if (!text || !animate) return;
 
@@ -93,7 +115,17 @@ export const StreamingMessage = memo(
 
     const wrap = useCallback(
       (text: string) => {
-        if (markdown) return <Markdown>{text}</Markdown>;
+        if (markdown)
+          return (
+            <Markdown
+              extensions={streamingExtensions}
+              frontmatter={false}
+              headingIds={false}
+              components={components}
+            >
+              {text}
+            </Markdown>
+          );
         else return text;
       },
       [markdown],
